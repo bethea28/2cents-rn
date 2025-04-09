@@ -12,7 +12,7 @@ import { AddCompanyForm } from "./AddCompanyForm";
 import { BusinessHoursModal } from "./BusinessHoursModal";
 import { useNavigation } from "@react-navigation/native";
 import { useSelector, useDispatch } from "react-redux";
-
+import { Notifier, Easing } from "react-native-notifier";
 const ModalItem = ({ modalVis, hideModal }) => {
   return (
     <Modal transparent={true} visible={modalVis} animationType="slide">
@@ -48,18 +48,61 @@ export function AddCompanyScreen() {
 
   const navigation = useNavigation();
   const onSubmit = async (data) => {
-    console.log("all my hours data", hoursData);
-    const finalData = {
-      companyInfo: data,
-      allImages,
-      hoursData,
-      userId: userData?.data?.user?.user_id,
-    };
-
-    console.log("ALL DATA NOW SUBMIT", data);
-    addCompany(finalData);
-    reset();
-    navigation.navigate("Home");
+    try {
+      const finalData = {
+        companyInfo: data,
+        allImages,
+        hoursData,
+        userId: userData?.data?.user?.user_id,
+      };
+      const request = await addCompany(finalData);
+      Notifier.showNotification({
+        title: "John Doe",
+        description:
+          "Business successfully added and will be awaiting verification!",
+        duration: 0,
+        swipeEnabled: true,
+        hideOnPress: true,
+        showAnimationDuration: 800,
+        showEasing: Easing.bounce,
+        // onHidden: () => console.log("Hidden"),
+        // onPress: () => console.log("Press"),
+      });
+      navigation.navigate("Home");
+    } catch (err) {
+      console.log("eror with adding company", err);
+      Notifier.showNotification({
+        title: "John Doe",
+        description: "Company was not successfully added. Fix Errors!",
+        duration: 0,
+        swipeEnabled: true,
+        hideOnPress: true,
+        showAnimationDuration: 800,
+        showEasing: Easing.bounce,
+        // onHidden: () => console.log("Hidden"),
+        // onPress: () => console.log("Press"),
+      });
+    } finally {
+      reset();
+    }
+    // console.log("request response noer", req);
+    // if (request.data.message.includes("created successfully")) {
+    //   // Notifier.showNotification({
+    //   //   title: "John Doe",
+    //   //   description:
+    //   //     "Business successfully added and will be awaiting verification!",
+    //   //   duration: 0,
+    //   //   swipeEnabled: true,
+    //   //   hideOnPress: true,
+    //   //   showAnimationDuration: 800,
+    //   //   showEasing: Easing.bounce,
+    //   //   // onHidden: () => console.log("Hidden"),
+    //   //   // onPress: () => console.log("Press"),
+    //   // });
+    //   // reset();
+    //   // navigation.navigate("Home");
+    // } else {
+    // }
   };
 
   const addPhotos = () => {

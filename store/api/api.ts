@@ -258,7 +258,6 @@ export const api = createApi({
     }),
     addReview: build.mutation<any, any>({
       query: (data) => {
-        console.log("data is king add revieww", data);
         return {
           url: `reviews/${data.userId}/${data.companyId}/addReview/`,
           method: "POST",
@@ -272,11 +271,28 @@ export const api = createApi({
         };
       },
     }),
+    addFeedback: build.mutation<any, any>({
+      query: (data) => {
+        console.log("feedback uploads now", data);
+        // return;
+        return {
+          url: `feedback/addFeedback/`,
+          // url: `reviews/${data.userId}/${data.companyId}/addReview/`,
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: JSON.stringify({
+            feedback: data.feedback,
+          }),
+        };
+      },
+    }),
     addCompany: build.mutation<any, any>({
       query: (data) => {
         const userId = data?.userId;
         return {
-          url: `company/${userId}/addCompany/`,
+          url: `company/${userId}/addUnverifiedCompany/`,
           method: "POST",
           headers: {
             "Content-Type": "application/json", // Use JSON
@@ -369,6 +385,7 @@ export const {
   useAddCompanyMutation,
   useGoogleAuthMutation,
   useGetReviewsQuery,
+  useAddFeedbackMutation,
   // useAddBookMutation,
   useGetMyShiftsQuery,
   useGetCalendarDataQuery,

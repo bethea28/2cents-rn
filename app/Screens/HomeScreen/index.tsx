@@ -13,7 +13,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useGetCompaniesQuery } from "@/store/api/api";
 import { useAsyncStorage } from "@/app/customHooks";
 import { useSelector } from "react-redux";
-
+import { Searchbar } from "react-native-paper";
 // Define a Material Design inspired color palette
 const primaryColor = "#a349a4"; // Purple 500 (approx.)
 const primaryLightColor = "#d67bff"; // Purple 200 (approx.)
@@ -42,6 +42,7 @@ export function HomeScreen() {
   const [getData] = useAsyncStorage();
   const userData = useSelector((state) => state.counter.userState);
   const userName = userData?.data?.user?.name || "Guest"; // Handle potential undefined user
+  const [searchQuery, setSearchQuery] = React.useState("");
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -101,6 +102,12 @@ export function HomeScreen() {
           Let Us Help You Find Your Next Carnival Costume!
         </Text>
       </View>
+      <Searchbar
+        style={{ marginBottom: 10 }}
+        placeholder="Business Search"
+        onChangeText={setSearchQuery}
+        value={searchQuery}
+      />
       {/* <View style={styles.buttonContainer}>
         <Pressable
           onPress={() => navigation.navigate("AddCompany")}

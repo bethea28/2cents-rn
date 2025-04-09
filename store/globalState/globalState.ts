@@ -1,5 +1,6 @@
 import { BusinessHours } from "@/app/Screens/BusinessHours";
 import { createSlice } from "@reduxjs/toolkit";
+import { produce } from "immer";
 import { act } from "react";
 
 const initialState = {
@@ -43,12 +44,13 @@ export const counterSlice = createSlice({
       state.value += action.payload;
     },
     setCompanyInfo: (state, action) => {
-      console.log("set companyinfo BRYAN", action.payload);
+      console.log("set companyinfo BRYAN", action.payload.images);
       const updatedCompanyInfo = {
         ...state.companyInfo,
         companyId: action.payload.id,
         hoursData: action.payload.hoursData,
         companyDescription: action.payload.companyInfo.description,
+        images: action.payload.images,
       };
       state.companyInfo = updatedCompanyInfo;
       // state.value += action.payload;

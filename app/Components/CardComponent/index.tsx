@@ -1,6 +1,12 @@
 import * as React from "react";
 import { Avatar } from "react-native-paper";
-import { Pressable, View, StyleSheet, Text, Image } from "react-native";
+import {
+  Pressable,
+  View,
+  StyleSheet,
+  Text,
+  ImageBackground,
+} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { setCompanyInfo } from "@/store/globalState/globalState";
 import { useDispatch } from "react-redux";
@@ -49,7 +55,22 @@ export const CompanyCard = ({ title, mainImage, wholeData }) => {
       />
     );
   };
-  const allRatings = null;
+
+  const AddressComponent = ({ phone, addy, city, state, zip, title }) => (
+    <>
+      <Text style={styles.title}>{title}</Text>
+
+      <>
+        <Text>{addy}</Text>
+        <View style={{ flexDirection: "row" }}>
+          <Text>{city}</Text>
+          <Text> {state}</Text>
+          <Text> {zip}</Text>
+        </View>
+        <Text>{phone}</Text>
+      </>
+    </>
+  );
   const ratings = React.useMemo(() => {
     if (!allCompanyReviews?.reviews) return [];
     const length = allCompanyReviews.reviews.length;
@@ -58,21 +79,43 @@ export const CompanyCard = ({ title, mainImage, wholeData }) => {
     }, 0);
     return rating / length;
   }, [isLoading]);
+
+  const addy = wholeData.companyInfo.address;
+  const city = wholeData.companyInfo.city;
+  const state = wholeData.companyInfo.state;
+  const zip = wholeData.companyInfo.zip;
+  // console.log("whole data now", wholeData);
   return (
     <View style={styles.card}>
       <View style={styles.cardContent}>
-        <Text style={styles.title}>{title}</Text>
+        <AddressComponent
+          title={title}
+          addy={addy}
+          city={city}
+          state={state}
+          zip={zip}
+          phone={1234567}
+        />
         {/* <StarRate styles={{ width: 100 }} rating={5} /> */}
       </View>
-      <Image
-        style={styles.cover}
+      <ImageBackground
+        style={[styles.cover, { justifyContent: "flex-end" }]}
         source={{
           uri:
             mainImage ||
             "https://www.rollingstone.com/wp-content/uploads/2022/02/0001x.jpg?w=1581&h=1054&crop=1&s",
         }}
         onError={(err) => console.log("what is image error", err)}
-      />
+      >
+        <Pressable
+          onPress={() => handleNavigate(3)}
+          style={({ pressed }) => [
+            { backgroundColor: pressed ? "red" : "green" },
+          ]}
+        >
+          <Text style={{ fontSize: 24 }}>See all Photos </Text>
+        </Pressable>
+      </ImageBackground>
       <View style={styles.actions}>
         <View style={styles.actionsContainer}>
           <View style={{ marginRight: 48 }}>

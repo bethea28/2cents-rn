@@ -11,8 +11,7 @@ import {
   Easing, // Import Easing if you haven't already
 } from "react-native";
 import { useForm, Controller } from "react-hook-form";
-import { useAddReviewMutation } from "@/store/api/api";
-import StarRating from "react-native-star-rating-widget";
+import { useAddFeedbackMutation } from "@/store/api/api";
 import { useSelector } from "react-redux";
 import { useNavigation } from "@react-navigation/native";
 // import { StackActions } from "@react-navigation/native"; // No longer directly needed with goBack
@@ -22,8 +21,8 @@ const StarRate = ({ changeRating, rating, styles }) => {
   return <StarRating style={styles} rating={rating} onChange={changeRating} />;
 };
 
-export function AddReviewScreen({ route: { params } }) {
-  const [addReview] = useAddReviewMutation();
+export function UserFeedbackScreen({ route: { params } }) {
+  const [addFeedback] = useAddFeedbackMutation();
   const [rating, setRating] = React.useState(0);
   const navigation = useNavigation();
 
@@ -34,25 +33,24 @@ export function AddReviewScreen({ route: { params } }) {
     reset,
   } = useForm({
     defaultValues: {
-      review: "",
+      feedback: "",
     },
   });
   const userData = useSelector((state) => state.counter.userState);
   console.log("this was passion now bryan bethea", params);
 
   const onSubmit = async (data) => {
+    console.log("here is my feedback", data);
+    // return;
     try {
       const final = {
-        review: data.review,
-        rating,
-        userId: userData.data.user.user_id,
-        companyId: params.companyInfo.companyId,
+        feedback: data.feedback,
       };
-      const request = await addReview(final);
+      const request = await addFeedback(final);
       // Ensure the addReview mutation was successful before navigating back
       if (request?.data.message.includes("created")) {
         await Notifier.showNotification({
-          description: "Review was successfully added!",
+          description: "Thank you for your feedback!",
           duration: 3000, // Increased duration for better visibility
           swipeEnabled: true,
           hideOnPress: true,
@@ -64,7 +62,7 @@ export function AddReviewScreen({ route: { params } }) {
         // Handle the case where adding the review failed
         console.log("Failed to add review:", request?.error);
         Notifier.showNotification({
-          description: "Failed to add review. Please try again.",
+          description: "Failed to add feedback. Please try again.",
           duration: 5000,
           backgroundStyle: { backgroundColor: "red" },
         });
@@ -94,12 +92,12 @@ export function AddReviewScreen({ route: { params } }) {
         <Controller
           control={control}
           rules={{
-            required: "Review text is required.", // More user-friendly message
+            required: "Feedback text is required.", // More user-friendly message
           }}
           render={({ field: { onChange, onBlur, value } }) => (
             <TextInput
-              placeholder="Add a review!"
-              placeholderTextColor="gray" // More standard color
+              placeholder="Please leave us Feedback, Suggestions, or Comments so that we can make this app experience better for you!"
+              placeholderTextColor="black" // More standard color
               onBlur={onBlur}
               onChangeText={onChange}
               value={value}
@@ -108,24 +106,12 @@ export function AddReviewScreen({ route: { params } }) {
               textAlignVertical="top"
             />
           )}
-          name="review"
+          name="feedback"
         />
-        {errors.review && (
-          <Text style={styles.errorText}>{errors.review.message}</Text>
+        {errors.feedback && (
+          <Text style={styles.errorText}>{errors.feedback.message}</Text>
         )}
-        <View style={styles.ratingAndButtonContainer}>
-          <StarRate
-            styles={styles.starRating}
-            rating={rating}
-            changeRating={setRating}
-          />
-          <Button
-            color="blue"
-            title="Submit"
-            onPress={handleSubmit(onSubmit)}
-            disabled={!rating} // Disable submit if no rating is given
-          />
-        </View>
+        <Button color="blue" title="Submit" onPress={handleSubmit(onSubmit)} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -146,6 +132,7 @@ const styles = StyleSheet.create({
     minHeight: 150, // Increased minHeight for better writing area
     textAlignVertical: "top",
     color: "black", // Ensure text is visible
+    fontSize: 16,
   },
   ratingAndButtonContainer: {
     alignItems: "center",

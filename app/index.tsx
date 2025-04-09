@@ -30,6 +30,9 @@ import { SocialLoginScreen } from "./Screens/SocialLoginScreen";
 import { useSelector } from "react-redux";
 import { useGoogleAuthMutation } from "@/store/api/api";
 import { useNavigation } from "@react-navigation/native";
+import { NotifierWrapper } from "react-native-notifier";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { UserFeedbackScreen } from "./Screens/UserFeedbackScreen";
 // WebView Component
 
 const BottomTab = createBottomTabNavigator();
@@ -65,6 +68,11 @@ function MyBottomTabs() {
         // options={{ headerShown: false }}
         name="Profile"
         component={ProfileScreen}
+      />
+      <BottomTab.Screen
+        // options={{ headerShown: false }}
+        name="Feedback"
+        component={UserFeedbackScreen}
       />
     </BottomTab.Navigator>
   );
@@ -197,7 +205,11 @@ export default function App() {
   return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
-        <MainApp />
+        <GestureHandlerRootView>
+          <NotifierWrapper>
+            <MainApp />
+          </NotifierWrapper>
+        </GestureHandlerRootView>
       </PersistGate>
     </Provider>
   );

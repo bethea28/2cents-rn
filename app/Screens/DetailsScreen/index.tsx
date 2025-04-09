@@ -57,7 +57,7 @@ const DescriptionDetails = ({ companyInfo }) => (
   </View>
 );
 
-const Actions = ({ camera, action, header, params }) => {
+const Actions = ({ camera, action, header, params, companyInfo }) => {
   const [image, setImage] = React.useState(null);
   const navigate = useNavigation();
 
@@ -73,14 +73,12 @@ const Actions = ({ camera, action, header, params }) => {
       setImage(result.assets);
     }
   };
-
+  console.log("PARANS ARE BIW", companyInfo);
   return (
     <View style={styles.actionsContainer}>
       <Pressable
         onPress={
-          camera
-            ? pickImage
-            : () => navigate.navigate(action, { companyData: params })
+          camera ? pickImage : () => navigate.navigate(action, { companyInfo })
         }
         style={({ pressed }) => [
           styles.actionButton,
@@ -99,7 +97,7 @@ const Actions = ({ camera, action, header, params }) => {
   );
 };
 
-const Recommend = ({ params }) => (
+const Recommend = ({ companyInfo }) => (
   <View style={styles.recommendContainer}>
     <Text style={styles.recommendQuestion}>
       Do you recommend this business?
@@ -122,13 +120,14 @@ const Recommend = ({ params }) => (
     </View>
     <View style={styles.recommendActions}>
       <Actions
-        params={params}
+        companyInfo={companyInfo}
         camera={false}
         header="Add Review"
         action="AddReviews"
       />
       <Actions
-        params={params}
+        companyInfo={companyInfo}
+        // params={params}
         camera={true}
         header="Add Photo"
         action="AddPhotos"
@@ -139,7 +138,7 @@ const Recommend = ({ params }) => (
 
 export function DetailsScreen({ route: { params } }) {
   const companyInfo = useSelector((state) => state.counter.companyInfo);
-
+  console.log("show all params now", params);
   return (
     <ScrollView
       contentContainerStyle={{ paddingBottom: 50 }}
@@ -149,7 +148,7 @@ export function DetailsScreen({ route: { params } }) {
       <DescriptionDetails companyInfo={companyInfo} />
       {/* <BasicDetails params={params} /> */}
       {/* <BusinessHours staleHours={params?.hoursData} stale={true} /> */}
-      <Recommend params={params} />
+      <Recommend companyInfo={companyInfo} />
     </ScrollView>
   );
 }
