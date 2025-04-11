@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCallback } from "react";
 
 export const useImagePicker = () => {
   const [allImages, setAllImages] = useState([]);
@@ -85,4 +86,48 @@ export const useAsyncStorage = () => {
     }
   };
   return [storeData, getData];
+};
+
+export const useAuthTokens = () => {
+  const getAccessToken = useCallback(async () => {
+    try {
+      const accessToken = await AsyncStorage.getItem("accessToken");
+      return accessToken || null;
+    } catch (error) {
+      console.error("Error getting access token from local storage:", error);
+      return null;
+    }
+  }, []);
+
+  const getRefreshToken = useCallback(async () => {
+    try {
+      const refreshToken = await AsyncStorage.getItem("refreshToken");
+      return refreshToken || null;
+    } catch (error) {
+      console.error("Error getting refresh token from local storage:", error);
+      return null;
+    }
+  }, []);
+
+  const storeTokens = useCallback(async (accessToken, refreshToken) => {
+    try {
+      await AsyncStorage.setItem("accessToken", accessToken);
+      await AsyncStorage.setItem("refreshToken", refreshToken);
+      console.log("Tokens stored successfully in local storage");
+    } catch (error) {
+      console.error("Error storing tokens in local storage:", error);
+    }
+  }, []);
+
+  const clearTokens = useCallback(async () => {
+    try {
+      await AsyncStorage.removeItem("accessToken");
+      await AsyncStorage.removeItem("refreshToken");
+      console.log("Tokens cleared from local storage");
+    } catch (error) {
+      console.error("Error clearing tokens from local storage:", error);
+    }
+  }, []);
+
+  return { getAccessToken, getRefreshToken, storeTokens, clearTokens };
 };

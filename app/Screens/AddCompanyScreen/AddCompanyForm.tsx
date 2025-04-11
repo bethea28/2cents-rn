@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Text,
   View,
@@ -8,16 +8,18 @@ import {
   Platform,
   KeyboardAvoidingView,
   Pressable,
+  Image,
+  FlatList,
 } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { useNavigation } from "@react-navigation/native";
-import { BusinessHours } from "../BusinessHours";
-import { useSelector } from "react-redux";
-
-// Define the color palette based on the image (same as other components)
+import * as ImagePicker from "react-native-image-picker";
+import { useSelector, UseSelector } from "react-redux";
+import { useAuthTokens } from "@/app/customHooks";
+// Define the color palette (keeping it consistent)
 const primaryColor = "#a349a4"; // Purple
-const secondaryColor = "#FF8C00"; // Your new, more vibrant orange (replace with actual code)
-const backgroundColor = "#FFB347"; // Example lighter orange (adjust as needed)
+const secondaryColor = "#FF8C00"; // Vibrant Orange
+const backgroundColor = "#FFB347"; // Lighter Orange
 const textColorPrimary = "#ffffff"; // White
 const textColorSecondary = "#333333"; // Dark Gray
 const inputBackgroundColor = textColorPrimary; // Assuming input fields are white
@@ -26,12 +28,7 @@ const buttonTextColor = textColorPrimary;
 const errorTextColor = "red";
 const placeholderTextColor = "gray";
 
-export function AddCompanyForm({
-  onSubmit,
-  setModalVis,
-  addPhotos,
-  hoursData,
-}) {
+export function AddCompanyForm() {
   const {
     control,
     handleSubmit,
@@ -39,20 +36,74 @@ export function AddCompanyForm({
     reset,
   } = useForm({
     defaultValues: {
-      name: "",
-      address: "",
-      city: "",
-      zip: "",
-      state: "",
-      hours: "",
-      type: "",
-      description: "",
-      photos: [],
+      title: "",
+      storyType: "one-sided", // Default value
+      sideAContent: "",
+      sideAVideoUrl: "",
+      sideBContent: "",
+      sideBVideoUrl: "",
     },
   });
-  const [hoursComp, setShowHoursComp] = useState(false);
+
   const navigation = useNavigation();
-  const bizHours = useSelector((state) => state.counter.businessHours);
+  const [selectedPhotos, setSelectedPhotos] = useState([]);
+  const [storyType, setStoryType] = useState("one-sided");
+  const userState = useSelector((state) => state.counter.userState);
+  const { getAccessToken } = useAuthTokens();
+  const [accessToken, setAccessToken] = useState(null);
+
+  useEffect(() => {
+    const fetchAccessToken = async () => {
+      const token = await getAccessToken();
+      console.log("Retrieved Access Token:", token);
+      setAccessToken(token);
+    };
+
+    fetchAccessToken();
+  }, [accessToken]);
+  const handleAddPhotos = () => {
+    const options = {
+      mediaType: "photo",
+      quality: 0.8,
+      allowsMultipleSelection: true,
+    };
+
+    ImagePicker.launchImageLibrary(options, (response) => {
+      if (response.didCancel) {
+        console.log("User cancelled image picker");
+      } else if (response.error) {
+        console.log("ImagePicker Error: ", response.error);
+      } else {
+        const newPhotos = response.assets.map((asset) => ({ uri: asset.uri }));
+        setSelectedPhotos((prevPhotos) => [...prevPhotos, ...newPhotos]);
+      }
+    });
+  };
+
+  const renderSelectedPhoto = ({ item }) => (
+    <View style={styles.selectedPhotoItem}>
+      <Image source={{ uri: item.uri }} style={styles.selectedPhoto} />
+      <Pressable
+        onPress={() => {
+          setSelectedPhotos((prevPhotos) =>
+            prevPhotos.filter((photo) => photo.uri !== item.uri)
+          );
+        }}
+        style={styles.removePhotoButton}
+      >
+        <Text style={styles.removePhotoText}>X</Text>
+      </Pressable>
+    </View>
+  );
+
+  const onSubmit = (formData) => {
+    const dataToSend = { ...formData, storyType };
+    console.log("Form Data:", dataToSend);
+    console.log("Selected Photos:", selectedPhotos);
+    console.log("user data now", userState);
+    console.log("access tokenn", accessToken);
+    // Your submission logic here, including sending dataToSend and selectedPhotos to the server
+  };
 
   return (
     <KeyboardAvoidingView
@@ -63,29 +114,47 @@ export function AddCompanyForm({
         contentContainerStyle={styles.scrollViewContent}
         keyboardShouldPersistTaps="handled"
       >
-        <Controller
-          control={control}
-          rules={{ required: false }}
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              placeholder="Name"
-              placeholderTextColor={placeholderTextColor}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              value={value}
-              style={styles.input}
-            />
-          )}
-          name="name"
-        />
-        {errors.name && <Text style={styles.errorText}>This is required.</Text>}
+        <View style={styles.storyTypeButtons}>
+          <Pressable
+            style={[
+              styles.storyTypeButton,
+              storyType === "one-sided" && styles.storyTypeButtonActive,
+            ]}
+            onPress={() => setStoryType("one-sided")}
+          >
+            <Text
+              style={[
+                styles.storyTypeText,
+                storyType === "one-sided" && styles.storyTypeTextActive,
+              ]}
+            >
+              One-Sided
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.storyTypeButton,
+              storyType === "two-sided" && styles.storyTypeButtonActive,
+            ]}
+            onPress={() => setStoryType("two-sided")}
+          >
+            <Text
+              style={[
+                styles.storyTypeText,
+                storyType === "two-sided" && styles.storyTypeTextActive,
+              ]}
+            >
+              Two-Sided
+            </Text>
+          </Pressable>
+        </View>
 
         <Controller
           control={control}
-          rules={{ required: false }}
+          rules={{ minLength: 3 }}
           render={({ field: { onChange, onBlur, value } }) => (
             <TextInput
-              placeholder="Address"
+              placeholder="Title (optional)"
               placeholderTextColor={placeholderTextColor}
               onBlur={onBlur}
               onChangeText={onChange}
@@ -93,119 +162,74 @@ export function AddCompanyForm({
               style={styles.input}
             />
           )}
-          name="address"
+          name="title"
         />
-        {errors.address && (
-          <Text style={styles.errorText}>This is required.</Text>
+        {errors.title && (
+          <Text style={styles.errorText}>
+            Title must be at least 3 characters.
+          </Text>
         )}
 
         <Controller
           control={control}
-          rules={{ required: false }}
+          rules={{ required: true, minLength: 10 }}
           render={({ field: { onChange, onBlur, value } }) => (
             <TextInput
-              placeholder="City"
-              placeholderTextColor={placeholderTextColor}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              value={value}
-              style={styles.input}
-            />
-          )}
-          name="city"
-        />
-        {errors.city && <Text style={styles.errorText}>This is required.</Text>}
-
-        <View style={styles.rowInputs}>
-          <Controller
-            control={control}
-            rules={{ required: false }}
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                placeholder="State"
-                placeholderTextColor={placeholderTextColor}
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
-                style={styles.smallInput}
-              />
-            )}
-            name="state"
-          />
-          {errors.state && (
-            <Text style={styles.errorText}>This is required.</Text>
-          )}
-          <Controller
-            control={control}
-            rules={{ required: false }}
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                placeholder="Zip"
-                placeholderTextColor={placeholderTextColor}
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
-                style={styles.smallInput}
-              />
-            )}
-            name="zip"
-          />
-          {errors.zip && (
-            <Text style={styles.errorText}>This is required.</Text>
-          )}
-        </View>
-        <Pressable
-          onPress={() => setShowHoursComp((prevState) => !prevState)}
-          style={styles.input}
-        >
-          <Text style={styles.placeholderText}>Hours</Text>
-          {bizHours && Object.keys(bizHours).length > 0 && (
-            <Text style={styles.selectedHoursText}>Hours Added</Text>
-          )}
-        </Pressable>
-
-        {hoursComp && <BusinessHours addCompany={true} />}
-
-        <Controller
-          control={control}
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              placeholder="Type"
-              placeholderTextColor={placeholderTextColor}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              value={value}
-              style={styles.input}
-            />
-          )}
-          name="type"
-        />
-        <Controller
-          control={control}
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              placeholder="Description"
+              placeholder="Your Story (required)"
               placeholderTextColor={placeholderTextColor}
               onBlur={onBlur}
               onChangeText={onChange}
               value={value}
               style={[styles.input, styles.multilineInput]}
               multiline
-              numberOfLines={3}
+              numberOfLines={5}
+              textAlignVertical="top"
             />
           )}
-          name="description"
+          name="sideAContent"
+        />
+        {errors.sideAContent && (
+          <Text style={styles.errorText}>
+            Your story is required and must be at least 10 characters.
+          </Text>
+        )}
+
+        <Controller
+          control={control}
+          render={({ field: { onChange, onBlur, value } }) => (
+            <TextInput
+              placeholder="Video URL (optional)"
+              placeholderTextColor={placeholderTextColor}
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={value}
+              style={styles.input}
+            />
+          )}
+          name="sideAVideoUrl"
         />
 
+        {selectedPhotos && selectedPhotos.length > 0 && (
+          <View style={styles.selectedPhotosPreview}>
+            <Text style={styles.previewTitle}>Selected Photos:</Text>
+            <FlatList
+              data={selectedPhotos}
+              renderItem={renderSelectedPhoto}
+              keyExtractor={(item, index) => index.toString()}
+              horizontal
+            />
+          </View>
+        )}
+
         <View style={styles.buttonContainer}>
-          <Pressable onPress={addPhotos} style={styles.addPhotosButton}>
+          <Pressable onPress={handleAddPhotos} style={styles.addPhotosButton}>
             <Text style={styles.addPhotosText}>Add Photos</Text>
           </Pressable>
           <Pressable
             style={styles.submitButton}
             onPress={handleSubmit(onSubmit)}
           >
-            <Text style={styles.submitButtonText}>Submit</Text>
+            <Text style={styles.submitButtonText}>Submit Story</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -232,23 +256,8 @@ const styles = StyleSheet.create({
     color: textColorSecondary,
   },
   multilineInput: {
-    minHeight: 80,
+    minHeight: 100,
     textAlignVertical: "top",
-  },
-  smallInput: {
-    flex: 1,
-    height: 50,
-    backgroundColor: inputBackgroundColor,
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    marginTop: 10,
-    marginHorizontal: 5,
-    color: textColorSecondary,
-  },
-  rowInputs: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 10,
   },
   errorText: {
     color: errorTextColor,
@@ -258,12 +267,15 @@ const styles = StyleSheet.create({
     marginTop: 25,
     alignItems: "center",
     flexDirection: "row",
+    justifyContent: "space-around",
   },
   submitButton: {
     backgroundColor: buttonBackgroundColor,
     borderRadius: 8,
-    paddingVertical: 25,
+    paddingVertical: 15,
     paddingHorizontal: 30,
+    flex: 1,
+    marginLeft: 10,
   },
   submitButtonText: {
     color: buttonTextColor,
@@ -279,7 +291,9 @@ const styles = StyleSheet.create({
     width: "50%",
     paddingVertical: 15,
     justifyContent: "center",
-    marginTop: 20,
+    marginTop: 10,
+    flex: 1,
+    marginRight: 10,
   },
   addPhotosText: {
     color: buttonTextColor,
@@ -288,11 +302,66 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
-  placeholderText: {
-    color: placeholderTextColor,
+  selectedPhotosPreview: {
+    marginTop: 20,
   },
-  selectedHoursText: {
-    color: primaryColor,
-    fontSize: 14,
+  previewTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 10,
+    color: textColorSecondary,
+  },
+  selectedPhotoItem: {
+    width: 100,
+    height: 100,
+    marginRight: 10,
+    borderRadius: 8,
+    overflow: "hidden",
+    position: "relative",
+  },
+  selectedPhoto: {
+    width: "100%",
+    height: "100%",
+  },
+  removePhotoButton: {
+    position: "absolute",
+    top: -8,
+    right: -8,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  removePhotoText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  storyTypeButtons: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginTop: 15,
+    marginBottom: 15,
+  },
+  storyTypeButton: {
+    borderWidth: 1,
+    borderColor: textColorSecondary,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+  },
+  storyTypeButtonActive: {
+    backgroundColor: primaryColor,
+    borderColor: primaryColor,
+  },
+  storyTypeText: {
+    color: textColorSecondary,
+    fontSize: 16,
+  },
+  storyTypeTextActive: {
+    color: textColorPrimary,
+    fontWeight: "bold",
   },
 });

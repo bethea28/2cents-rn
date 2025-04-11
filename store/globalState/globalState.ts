@@ -1,12 +1,16 @@
 import { BusinessHours } from "@/app/Screens/BusinessHours";
 import { createSlice } from "@reduxjs/toolkit";
-import { produce } from "immer";
-import { act } from "react";
 
 const initialState = {
   companyInfo: {},
   value: 0,
-  userState: {},
+  userState: {
+    userId: null,
+    lastName: null,
+    firstName: null,
+    userName: null,
+    email: null,
+  },
   businessHours: {
     0: { day: "Mon", open: "", close: "" },
     1: { day: "Tues", open: "", close: "" },
@@ -23,7 +27,13 @@ export const counterSlice = createSlice({
   initialState,
   reducers: {
     setUserState: (state, action) => {
-      state.userState = action.payload;
+      console.log("USER ACTIONS NOW", action.payload);
+      state.userState.userId = action.payload?.id;
+      state.userState.email = action.payload?.email;
+      state.userState.userName = action.payload?.username;
+      state.userState.lastName = action.payload?.lastName;
+      state.userState.firstName = action.payload?.firstName;
+
       // Redux Toolkit allows us to write "mutating" logic in reducers. It
       // doesn't actually mutate the state because it uses the Immer library,
       // which detects changes to a "draft state" and produces a brand new

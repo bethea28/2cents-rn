@@ -36,7 +36,8 @@ export const objectToUrlEncodedString = (
 
 export const api = createApi({
   // http://127.0.0.1:8000/reviews/
-  baseQuery: fetchBaseQuery({ baseUrl: "http://192.168.1.161:8000/" }),
+  baseQuery: fetchBaseQuery({ baseUrl: "http://192.168.1.161:3000/" }), //must use for android sim
+  // baseQuery: fetchBaseQuery({ baseUrl: "http://192.168.1.161:8000/" }), //python
   //   baseQuery: fetchBaseQuery({ baseUrl: "http://127.0.0.1:8000/" }),
   // baseQuery,
   reducerPath: "api",
@@ -83,6 +84,7 @@ export const api = createApi({
     //         };
     //     },
     // }),
+
     getBooks: build.query({
       query: () => ({}), // Empty query object since we're fetching all books
     }),
@@ -239,6 +241,38 @@ export const api = createApi({
         };
       },
     }),
+    authLogin: build.mutation<any, any>({
+      query: (data) => {
+        console.log("EXPRESS LOGIN", data.email, data.password);
+        return {
+          url: "auth/login",
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: objectToUrlEncodedString({
+            email: data.email,
+            password: data.password,
+          }),
+        };
+      },
+    }),
+    createStory: build.mutation<any, any>({
+      query: (data) => {
+        console.log("EXPRESS LOGIN", data.email);
+        return {
+          url: "createStory",
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: objectToUrlEncodedString({
+            email: data.email,
+            password: data.password,
+          }),
+        };
+      },
+    }),
     addBook: build.mutation<any, any>({
       query: (data) => {
         console.log("dpmt add any books", data);
@@ -377,6 +411,7 @@ export const api = createApi({
   refetchOnMountOrArgChange: true,
 });
 export const {
+  useAuthLoginMutation,
   useGetBooksQuery,
   useGetWeatherQuery,
   useGetDjangoQuery,

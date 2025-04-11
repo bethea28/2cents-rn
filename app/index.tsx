@@ -136,7 +136,7 @@ function MainApp() {
   const [books, setBooks] = React.useState([]);
   const [showHome, setShowHome] = React.useState(false);
   const [user, setUser] = React.useState("");
-  const userData = useSelector((state) => state.counter.userState); // Assuming your slice is named 'userSlice'
+  const userState = useSelector((state) => state.counter.userState); // Assuming your slice is named 'userSlice'
   React.useEffect(() => {
     // Example: Dispatch an action on component mount
     // dispatch(authorizeUser("the new user is bryan dude"));
@@ -180,10 +180,10 @@ function MainApp() {
       console.error("Error parsing user data:", error);
     }
   };
-  console.log("ALL USER FINAL DATA", userData);
+  console.log("ALL USER FINAL DATA", userState);
   return (
     <View style={{ flex: 1 }}>
-      {userData?.data?.message?.includes("successful") ? (
+      {userState?.userId ? (
         // <NavigationContainer>
         <RootStack />
       ) : (
