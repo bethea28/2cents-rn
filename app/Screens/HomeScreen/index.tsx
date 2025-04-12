@@ -130,7 +130,7 @@ export function HomeScreen() {
             tintColor={primaryColor}
           />
         }
-        data={allStories}
+        data={[]}
         renderItem={renderItem}
         keyExtractor={(item) =>
           item?.companyInfo?.id?.toString() || Math.random().toString()
