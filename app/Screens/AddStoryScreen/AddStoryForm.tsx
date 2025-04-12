@@ -29,7 +29,7 @@ const buttonTextColor = textColorPrimary;
 const errorTextColor = "red";
 const placeholderTextColor = "gray";
 
-export function AddCompanyForm() {
+export function AddStoryForm() {
   const {
     control,
     handleSubmit,
@@ -96,6 +96,7 @@ export function AddCompanyForm() {
     };
     const createStoryRequest = await createStory(story);
     console.log("KYRIE IRVING", createStoryRequest);
+    navigation.navigate("Home");
     // Your submission logic here, including sending dataToSend and selectedPhotos to the server
   };
 

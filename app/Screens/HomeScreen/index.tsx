@@ -10,7 +10,7 @@ import {
 import React, { useState } from "react";
 import { CompanyCard } from "@/app/Components/CardComponent";
 import { useNavigation } from "@react-navigation/native";
-import { useGetCompaniesQuery } from "@/store/api/api";
+import { useGetAllStoriesQuery } from "@/store/api/api";
 import { useAsyncStorage } from "@/app/customHooks";
 import { useSelector } from "react-redux";
 import { Searchbar } from "react-native-paper";
@@ -33,12 +33,12 @@ export function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
   const {
-    data: allCompanies,
+    data: allStories,
     isLoading,
     isError,
     error,
     refetch,
-  } = useGetCompaniesQuery();
+  } = useGetAllStoriesQuery();
   const [getData] = useAsyncStorage();
   const userData = useSelector((state) => state.counter.userState);
   const userName = userData?.data?.user?.name || "Guest"; // Handle potential undefined user
@@ -87,12 +87,12 @@ export function HomeScreen() {
         style={[styles.errorContainer, { backgroundColor: backgroundColor }]}
       >
         <Text style={[styles.errorText, { color: errorColor }]}>
-          Error loading companies.
+          Error loading stories.
         </Text>
       </View>
     );
   }
-
+  console.log("GET ALL STORIES", allStories);
   return (
     <View style={[styles.container, { backgroundColor: secondaryColor }]}>
       <View style={styles.header}>
@@ -130,7 +130,7 @@ export function HomeScreen() {
             tintColor={primaryColor}
           />
         }
-        data={allCompanies}
+        data={allStories}
         renderItem={renderItem}
         keyExtractor={(item) =>
           item?.companyInfo?.id?.toString() || Math.random().toString()

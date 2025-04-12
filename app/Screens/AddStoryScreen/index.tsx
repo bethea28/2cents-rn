@@ -8,19 +8,13 @@ import {
 import { useForm } from "react-hook-form";
 import { useImagePicker } from "@/app/customHooks";
 import { useAddCompanyMutation } from "@/store/api/api";
-import { AddCompanyForm } from "./AddCompanyForm";
-import { BusinessHoursModal } from "./BusinessHoursModal";
+import { AddStoryForm } from "./AddStoryForm";
+// import { BusinessHoursModal } from "./BusinessHoursModal";
 import { useNavigation } from "@react-navigation/native";
 import { useSelector, useDispatch } from "react-redux";
 import { Notifier, Easing } from "react-native-notifier";
-const ModalItem = ({ modalVis, hideModal }) => {
-  return (
-    <Modal transparent={true} visible={modalVis} animationType="slide">
-      <BusinessHoursModal closeView={hideModal} />
-    </Modal>
-  );
-};
-export function AddCompanyScreen() {
+
+export function AddStoryScreen() {
   const {
     control,
     handleSubmit,
@@ -114,7 +108,7 @@ export function AddCompanyScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ flex: 1 }}
     >
-      <AddCompanyForm
+      <AddStoryForm
         setModalVis={() => setModalVis(true)}
         onSubmit={onSubmit}
         hoursData={hoursData}

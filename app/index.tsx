@@ -21,7 +21,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { increment, setUserData } from "@/store/globalState/globalState";
 import { ProfileScreen } from "./Screens/ProfileScreen";
 import { HomeScreen } from "./Screens/HomeScreen";
-import { AddCompanyScreen } from "./Screens/AddCompanyScreen";
+import { AddStoryScreen } from "./Screens/AddStoryScreen";
 import { DetailsScreen } from "./Screens/DetailsScreen";
 import { InfoScreen } from "./Screens/InfoScreen";
 import { AddReviewScreen } from "./Screens/AddReviewScreen";
@@ -47,7 +47,7 @@ function MyBottomTabs() {
         options={{
           headerRight: () => (
             <Pressable
-              onPress={() => navigation.navigate("AddCompany")}
+              onPress={() => navigation.navigate("AddStory")}
               style={[
                 {
                   padding: 20,
@@ -57,7 +57,7 @@ function MyBottomTabs() {
                 },
               ]}
             >
-              <Text style={{ color: "white" }}>Add Company</Text>
+              <Text style={{ color: "white" }}>Add Story</Text>
             </Pressable>
           ),
         }}
@@ -86,7 +86,7 @@ function RootStack() {
         component={MyBottomTabs}
         options={{ headerShown: false }} // Keep it here if you want to hide in Home
       />
-      <StackNav.Screen name="AddCompany" component={AddCompanyScreen} />
+      <StackNav.Screen name="AddStory" component={AddStoryScreen} />
       <StackNav.Screen name="Details" component={DetailsScreen} />
       <StackNav.Screen
         name="Info"

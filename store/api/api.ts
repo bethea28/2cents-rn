@@ -126,7 +126,7 @@ export const api = createApi({
     createStory: build.mutation<any, any>({
       query: (data) =>
         console.log("create story data here", data) || {
-          url: "createStory",
+          url: "stories/createStory",
           method: "POST",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
@@ -203,9 +203,9 @@ export const api = createApi({
         params: {},
       }),
     }),
-    getCompanies: build.query({
+    getAllStories: build.query({
       query: () => ({
-        url: "company/getCompanies/",
+        url: "stories/getAllStories/",
         params: {},
       }),
     }),
@@ -219,8 +219,8 @@ export const {
   useGetBooksQuery,
   useGetWeatherQuery,
   useGetDjangoQuery,
-  useGetCompaniesQuery,
   useAddReviewMutation,
+  useGetAllStoriesQuery,
   useAddCompanyMutation,
   useGoogleAuthMutation,
   useGetReviewsQuery,
