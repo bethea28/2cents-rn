@@ -14,55 +14,15 @@ export const objectToUrlEncodedString = (
   const urlEncoded = new URLSearchParams(obj);
   return urlEncoded.toString();
 };
-
-import AsyncStorage from "@react-native-async-storage/async-storage"; // Assuming you're using this
+import { authTokenStore } from "@/app/customHooks";
+// import AsyncStorage from "@react-native-async-storage/async-storage"; // Assuming you're using this
 
 const createMyBaseQuery = () => {
   return async (args, api, extraOptions) => {
-    const getAccessToken = async () => {
-      try {
-        const accessToken = await AsyncStorage.getItem("accessToken");
-        return accessToken || null;
-      } catch (error) {
-        console.error("Error getting access token:", error);
-        return null;
-      }
-    };
-
-    const getRefreshToken = async () => {
-      try {
-        const refreshToken = await AsyncStorage.getItem("refreshToken");
-        return refreshToken || null;
-      } catch (error) {
-        console.error("Error getting refresh token:", error);
-        return null;
-      }
-    };
-
-    const storeTokens = async (accessToken, refreshToken) => {
-      try {
-        await AsyncStorage.setItem("accessToken", accessToken);
-        await AsyncStorage.setItem("refreshToken", refreshToken);
-        console.log("Tokens stored successfully");
-      } catch (error) {
-        console.error("Error storing tokens:", error);
-      }
-    };
-
-    const clearTokens = async () => {
-      try {
-        await AsyncStorage.removeItem("accessToken");
-        await AsyncStorage.removeItem("refreshToken");
-        console.log("Tokens cleared");
-      } catch (error) {
-        console.error("Error clearing tokens:", error);
-      }
-    };
-
     const rawBaseQuery = fetchBaseQuery({
       baseUrl: "http://192.168.1.161:3000/",
       prepareHeaders: async (headers, { getState }) => {
-        const accessToken = await getAccessToken();
+        const accessToken = await authTokenStore.getAccessToken();
         if (accessToken) {
           headers.set("Authorization", `Bearer ${accessToken}`);
         }
@@ -74,7 +34,7 @@ const createMyBaseQuery = () => {
     const dispatch = api.dispatch;
 
     if (result?.error?.status === 401) {
-      const refreshToken = await getRefreshToken();
+      const refreshToken = await authTokenStore.getRefreshToken();
 
       if (refreshToken) {
         try {
@@ -91,20 +51,23 @@ const createMyBaseQuery = () => {
 
           if (refreshResult.ok) {
             const newTokens = await refreshResult.json();
-            await storeTokens(newTokens.accessToken, newTokens.refreshToken);
-            dispatch(authSlice.actions.setTokens(newTokens));
+            await authTokenStore.storeTokens(
+              newTokens.accessToken,
+              newTokens.refreshToken
+            );
+            dispatch(authSlice.actions.setAccessToken(newTokens));
             result = await rawBaseQuery(args, api, extraOptions);
           } else {
-            await clearTokens();
+            await authTokenStore.clearTokens();
             dispatch(authSlice.actions.logout());
           }
         } catch (error) {
           console.error("Token refresh error:", error);
-          await clearTokens();
+          await authTokenStore.clearTokens();
           dispatch(authSlice.actions.logout());
         }
       } else {
-        await clearTokens();
+        await authTokenStore.clearTokens();
         dispatch(authSlice.actions.logout());
       }
     }
@@ -115,18 +78,7 @@ const createMyBaseQuery = () => {
 export const api = createApi({
   reducerPath: "api",
   baseQuery: createMyBaseQuery(),
-  tagTypes: [
-    "myShifts",
-    "shiftsToGrab",
-    "upComingShifts",
-    "teamShifts",
-    "swapAlerts",
-    "accountInfo",
-    "alertsSettings",
-    "unavailabilityCalendar",
-    "payHistory",
-    "empRequests",
-  ],
+  tagTypes: [],
   endpoints: (build) => ({
     getWeather: build.query<any, void>({
       queryFn: async () => {
@@ -172,17 +124,25 @@ export const api = createApi({
         },
     }),
     createStory: build.mutation<any, any>({
-      query: (data) => ({
-        url: "createStory",
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+      query: (data) =>
+        console.log("create story data here", data) || {
+          url: "createStory",
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: objectToUrlEncodedString({
+            title: data.formData.title,
+            storyType: data.formData.storyType,
+            sideAContent: data.formData.sideAContent,
+            sideBContent: data.formData.sideBContent,
+            sideAVideoUrl: data.formData.sideAVideoUrl,
+            sideBVideoUrl: data.formData.sideBVideoUrl,
+            photos: data.formData.photos,
+            sideAAuthorId: data.formData.userId,
+            // sideBAuthorId: data.formData.userId,
+          }),
         },
-        body: objectToUrlEncodedString({
-          email: data.email,
-          password: data.password,
-        }),
-      }),
     }),
     addBook: build.mutation<any, any>({
       query: (data) => ({
@@ -265,6 +225,7 @@ export const {
   useGoogleAuthMutation,
   useGetReviewsQuery,
   useAddFeedbackMutation,
+  useCreateStoryMutation,
   useGetMyShiftsQuery,
   useGetCalendarDataQuery,
   useApiSessionQuery,

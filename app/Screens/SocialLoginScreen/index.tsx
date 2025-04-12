@@ -22,6 +22,7 @@ import jwt_decode from "jwt-decode";
 import { useAuthTokens } from "@/app/customHooks";
 import { useNavigation } from "@react-navigation/native";
 import { login } from "@/store/authReducer";
+import { authTokenStore } from "@/app/customHooks";
 
 export function SocialLoginScreen() {
   const dispatch = useDispatch();
@@ -41,12 +42,16 @@ export function SocialLoginScreen() {
     console.log("emails and all", email, password);
     try {
       const response = await regularSignIn(data);
-      console.log("Sign In Response:", response?.data.user);
+      console.log("Sign In Response:", response?.data);
       if (response?.data?.token && response?.data?.refreshToken) {
         console.log("if response work ");
+        authTokenStore.storeTokens(
+          response?.data.token,
+          response?.data.refreshToken
+        );
         dispatch(login(response?.data.user));
         dispatch(setUserState(response?.data.user)); // Assuming your setUserState expects the user object
-        await storeTokens(response?.data.token, response?.data.refreshToken);
+        // await storeTokens(response?.data.token, response?.data.refreshToken);
         setErrorMessage("Login successful!");
         // Navigate to your main app screen here
         // navigation.navigate("Home"); // Replace 'MainApp' with your actual screen name

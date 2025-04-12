@@ -15,6 +15,7 @@ import { useForm, Controller } from "react-hook-form";
 import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "react-native-image-picker";
 import { useSelector, UseSelector } from "react-redux";
+import { useCreateStoryMutation } from "@/store/api/api";
 import { useAuthTokens } from "@/app/customHooks";
 // Define the color palette (keeping it consistent)
 const primaryColor = "#a349a4"; // Purple
@@ -49,18 +50,7 @@ export function AddCompanyForm() {
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [storyType, setStoryType] = useState("one-sided");
   const userState = useSelector((state) => state.counter.userState);
-  const { getAccessToken } = useAuthTokens();
-  const [accessToken, setAccessToken] = useState(null);
-
-  useEffect(() => {
-    const fetchAccessToken = async () => {
-      const token = await getAccessToken();
-      console.log("Retrieved Access Token:", token);
-      setAccessToken(token);
-    };
-
-    fetchAccessToken();
-  }, [accessToken]);
+  const [createStory] = useCreateStoryMutation();
   const handleAddPhotos = () => {
     const options = {
       mediaType: "photo",
@@ -96,12 +86,16 @@ export function AddCompanyForm() {
     </View>
   );
 
-  const onSubmit = (formData) => {
+  const onSubmit = async (formData) => {
     const dataToSend = { ...formData, storyType };
-    console.log("Form Data:", dataToSend);
-    console.log("Selected Photos:", selectedPhotos);
-    console.log("user data now", userState);
-    console.log("access tokenn", accessToken);
+
+    const story = {
+      photos: selectedPhotos,
+      userId: userState.userId,
+      formData,
+    };
+    const createStoryRequest = await createStory(story);
+    console.log("KYRIE IRVING", createStoryRequest);
     // Your submission logic here, including sending dataToSend and selectedPhotos to the server
   };
 

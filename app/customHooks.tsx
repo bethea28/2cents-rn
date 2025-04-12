@@ -88,6 +88,47 @@ export const useAsyncStorage = () => {
   return [storeData, getData];
 };
 
+export const authTokenStore = {
+  getAccessToken: async () => {
+    try {
+      const accessToken = await AsyncStorage.getItem("accessToken");
+      return accessToken || null;
+    } catch (error) {
+      console.error("Error getting access token from local storage:", error);
+      return null;
+    }
+  },
+  getRefreshToken: async () => {
+    try {
+      const refreshToken = await AsyncStorage.getItem("refreshToken");
+      return refreshToken || null;
+    } catch (error) {
+      console.error("Error getting refresh token from local storage:", error);
+      return null;
+    }
+  },
+
+  storeTokens: async (accessToken, refreshToken) => {
+    try {
+      await AsyncStorage.setItem("accessToken", accessToken);
+      await AsyncStorage.setItem("refreshToken", refreshToken);
+      console.log("Tokens stored successfully in local storage");
+    } catch (error) {
+      console.error("Error storing tokens in local storage:", error);
+    }
+  },
+
+  clearTokens: async () => {
+    try {
+      await AsyncStorage.removeItem("accessToken");
+      await AsyncStorage.removeItem("refreshToken");
+      console.log("Tokens cleared from local storage");
+    } catch (error) {
+      console.error("Error clearing tokens from local storage:", error);
+    }
+  },
+};
+
 export const useAuthTokens = () => {
   const getAccessToken = useCallback(async () => {
     try {
