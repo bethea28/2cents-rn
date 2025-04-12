@@ -1,19 +1,66 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 // import { objectToUrlEncodedString } from "./helpers";
+// import {objecttourl}
 import { useAuthTokens } from "@/app/customHooks";
 
 // Define your auth slice (assuming you have one)
 import { useDispatch } from "react-redux"; // To dispatch actions
 import authSlice from "../authReducer";
-export const api = createApi({
-  reducerPath: "api",
-  baseQuery: async (args, api, extraOptions) => {
-    const { getAccessToken, getRefreshToken, storeTokens, clearTokens } =
-      useAuthTokens();
-    const dispatch = useDispatch(); // Get the dispatch function
+
+export const objectToUrlEncodedString = (
+  obj: Record<string, string | number>
+) => {
+  // @ts-ignore
+  const urlEncoded = new URLSearchParams(obj);
+  return urlEncoded.toString();
+};
+
+import AsyncStorage from "@react-native-async-storage/async-storage"; // Assuming you're using this
+
+const createMyBaseQuery = () => {
+  return async (args, api, extraOptions) => {
+    const getAccessToken = async () => {
+      try {
+        const accessToken = await AsyncStorage.getItem("accessToken");
+        return accessToken || null;
+      } catch (error) {
+        console.error("Error getting access token:", error);
+        return null;
+      }
+    };
+
+    const getRefreshToken = async () => {
+      try {
+        const refreshToken = await AsyncStorage.getItem("refreshToken");
+        return refreshToken || null;
+      } catch (error) {
+        console.error("Error getting refresh token:", error);
+        return null;
+      }
+    };
+
+    const storeTokens = async (accessToken, refreshToken) => {
+      try {
+        await AsyncStorage.setItem("accessToken", accessToken);
+        await AsyncStorage.setItem("refreshToken", refreshToken);
+        console.log("Tokens stored successfully");
+      } catch (error) {
+        console.error("Error storing tokens:", error);
+      }
+    };
+
+    const clearTokens = async () => {
+      try {
+        await AsyncStorage.removeItem("accessToken");
+        await AsyncStorage.removeItem("refreshToken");
+        console.log("Tokens cleared");
+      } catch (error) {
+        console.error("Error clearing tokens:", error);
+      }
+    };
 
     const rawBaseQuery = fetchBaseQuery({
-      baseUrl: "http://192.168.1.161:3000/", // Your API base URL
+      baseUrl: "http://192.168.1.161:3000/",
       prepareHeaders: async (headers, { getState }) => {
         const accessToken = await getAccessToken();
         if (accessToken) {
@@ -24,15 +71,15 @@ export const api = createApi({
     });
 
     let result = await rawBaseQuery(args, api, extraOptions);
+    const dispatch = api.dispatch;
 
-    // Check for unauthorized error (typically 401)
     if (result?.error?.status === 401) {
       const refreshToken = await getRefreshToken();
 
       if (refreshToken) {
         try {
           const refreshResult = await fetch(
-            "http://192.168.1.161:3000/auth/refresh", // Your refresh token endpoint
+            "http://192.168.1.161:3000/auth/refresh",
             {
               method: "POST",
               headers: {
@@ -44,31 +91,30 @@ export const api = createApi({
 
           if (refreshResult.ok) {
             const newTokens = await refreshResult.json();
-            // Store the new tokens using your hook
             await storeTokens(newTokens.accessToken, newTokens.refreshToken);
-            // Dispatch action to update the authentication state in Redux
             dispatch(authSlice.actions.setTokens(newTokens));
-            // Retry the original request with the new access token
             result = await rawBaseQuery(args, api, extraOptions);
           } else {
-            // Refresh failed, clear tokens and dispatch logout
             await clearTokens();
             dispatch(authSlice.actions.logout());
           }
         } catch (error) {
-          console.error("Error during token refresh:", error);
+          console.error("Token refresh error:", error);
           await clearTokens();
           dispatch(authSlice.actions.logout());
         }
       } else {
-        // No refresh token, clear tokens and dispatch logout
         await clearTokens();
         dispatch(authSlice.actions.logout());
       }
     }
 
     return result;
-  },
+  };
+};
+export const api = createApi({
+  reducerPath: "api",
+  baseQuery: createMyBaseQuery(),
   tagTypes: [
     "myShifts",
     "shiftsToGrab",
@@ -112,17 +158,18 @@ export const api = createApi({
       }),
     }),
     authLogin: build.mutation<any, any>({
-      query: (data) => ({
-        url: "auth/login",
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+      query: (data) =>
+        console.log("greateness", data) || {
+          url: "auth/login",
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: objectToUrlEncodedString({
+            email: data.email,
+            password: data.password,
+          }),
         },
-        body: objectToUrlEncodedString({
-          email: data.email,
-          password: data.password,
-        }),
-      }),
     }),
     createStory: build.mutation<any, any>({
       query: (data) => ({
