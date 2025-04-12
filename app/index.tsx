@@ -136,12 +136,13 @@ function MainApp() {
   const [books, setBooks] = React.useState([]);
   const [showHome, setShowHome] = React.useState(false);
   const [user, setUser] = React.useState("");
+  const userAuth = useSelector((state) => state.auth.user);
   const userState = useSelector((state) => state.counter.userState); // Assuming your slice is named 'userSlice'
   React.useEffect(() => {
     // Example: Dispatch an action on component mount
     // dispatch(authorizeUser("the new user is bryan dude"));
     dispatch(increment({ value: 20 }));
-    console.log("user name", user);
+    console.log("user name user auth", userAuth);
   }, [dispatch]);
 
   const djangoCall = async () => {
@@ -183,7 +184,7 @@ function MainApp() {
   console.log("ALL USER FINAL DATA", userState);
   return (
     <View style={{ flex: 1 }}>
-      {userState?.userId ? (
+      {userAuth?.userId ? (
         // <NavigationContainer>
         <RootStack />
       ) : (

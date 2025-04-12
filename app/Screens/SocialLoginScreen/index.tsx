@@ -21,6 +21,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import jwt_decode from "jwt-decode";
 import { useAuthTokens } from "@/app/customHooks";
 import { useNavigation } from "@react-navigation/native";
+import { login } from "@/store/authReducer";
 
 export function SocialLoginScreen() {
   const dispatch = useDispatch();
@@ -43,6 +44,7 @@ export function SocialLoginScreen() {
       console.log("Sign In Response:", response?.data.user);
       if (response?.data?.token && response?.data?.refreshToken) {
         console.log("if response work ");
+        dispatch(login(response?.data.user));
         dispatch(setUserState(response?.data.user)); // Assuming your setUserState expects the user object
         await storeTokens(response?.data.token, response?.data.refreshToken);
         setErrorMessage("Login successful!");
