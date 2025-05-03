@@ -125,7 +125,7 @@ export const api = createApi({
     }),
     createStory: build.mutation<any, any>({
       query: (data) =>
-        console.log("create story data here", data) || {
+        console.log("create story data", data.formData) || {
           url: "stories/createStory",
           method: "POST",
           headers: {
@@ -139,8 +139,8 @@ export const api = createApi({
             sideAVideoUrl: data.formData.sideAVideoUrl,
             sideBVideoUrl: data.formData.sideBVideoUrl,
             photos: data.formData.photos,
-            sideAAuthorId: data.formData.userId,
-            // sideBAuthorId: data.formData.userId,
+            sideAAuthorId: data.formData.sideAId,
+            sideBAuthorId: data.formData.sideBId,
           }),
         },
     }),

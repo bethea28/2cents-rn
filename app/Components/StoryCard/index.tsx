@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   cover: {
-    height: 180,
+    // height: 180,
     width: "100%",
     padding: 12,
   },

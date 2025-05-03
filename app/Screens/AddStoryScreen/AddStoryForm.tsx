@@ -87,19 +87,24 @@ export function AddStoryForm() {
   );
 
   const onSubmit = async (formData) => {
-    const dataToSend = { ...formData, storyType };
+    const dataToSend = {
+      ...formData,
+      storyType,
+      sideBId: 4,
+      sideAId: userState.userId,
+    };
 
     const story = {
       photos: selectedPhotos,
       userId: userState.userId,
-      formData,
+      formData: dataToSend,
     };
     const createStoryRequest = await createStory(story);
     console.log("KYRIE IRVING", createStoryRequest);
     navigation.navigate("Home");
     // Your submission logic here, including sending dataToSend and selectedPhotos to the server
   };
-
+  console.log("user data now", userState);
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
