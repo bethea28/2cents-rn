@@ -18,12 +18,13 @@ const surfaceColor = "#FFFFFF";
 export const StoryCard = ({ item }) => {
   const navigation = useNavigation();
 
-  const handleNavigate = () => {
-    navigation.navigate("StoryDetails", { story: item });
-  };
-
   return (
-    <View style={styles.card}>
+    <Pressable
+      onPress={() => navigation.navigate("FullStoryScreen", { story: item })}
+      style={({ pressed }) => [
+        { backgroundColor: pressed ? primaryColor : primaryLightColor },
+      ]}
+    >
       <View style={styles.cardContent}>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.subtitle}>Type: {item.storyType}</Text>
@@ -39,7 +40,7 @@ export const StoryCard = ({ item }) => {
           uri: "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=800&q=80",
         }}
       >
-        <Pressable
+        {/* <Pressable
           onPress={handleNavigate}
           style={({ pressed }) => [
             styles.button,
@@ -47,15 +48,15 @@ export const StoryCard = ({ item }) => {
           ]}
         >
           <Text style={styles.buttonText}>View Story</Text>
-        </Pressable>
+        </Pressable> */}
       </ImageBackground>
-    </View>
+    </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: surfaceColor,
+    // backgroundColor: surfaceColor,
     borderRadius: 8,
     elevation: 2,
     marginVertical: 12,

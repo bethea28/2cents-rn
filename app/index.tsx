@@ -33,6 +33,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NotifierWrapper } from "react-native-notifier";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { UserFeedbackScreen } from "./Screens/UserFeedbackScreen";
+import { FullStoryScreen } from "./Screens/FullStoryScreen";
 // WebView Component
 
 const BottomTab = createBottomTabNavigator();
@@ -88,6 +89,7 @@ function RootStack() {
       />
       <StackNav.Screen name="AddStory" component={AddStoryScreen} />
       <StackNav.Screen name="Details" component={DetailsScreen} />
+      <StackNav.Screen name="FullStoryScreen" component={FullStoryScreen} />
       <StackNav.Screen
         name="Info"
         component={InfoScreen}
