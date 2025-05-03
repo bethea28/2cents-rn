@@ -1,7 +1,7 @@
 import React from "react";
 import { View, FlatList, Pressable, Image } from "react-native";
 import { Text, Button } from "react-native-paper";
-import { CompanyCard } from "@/app/Components/CardComponent";
+import { CompanyCard } from "@/app/Components/StoryCard";
 import { companyObjects } from "@/mockData";
 import { useNavigation } from "@react-navigation/native";
 import { useSelector } from "react-redux";

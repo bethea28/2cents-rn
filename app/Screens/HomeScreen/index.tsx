@@ -8,12 +8,12 @@ import {
   ActivityIndicator,
 } from "react-native";
 import React, { useState } from "react";
-import { CompanyCard } from "@/app/Components/CardComponent";
 import { useNavigation } from "@react-navigation/native";
 import { useGetAllStoriesQuery } from "@/store/api/api";
 import { useAsyncStorage } from "@/app/customHooks";
 import { useSelector } from "react-redux";
 import { Searchbar } from "react-native-paper";
+import { StoryCard } from "@/app/Components/StoryCard";
 // Define a Material Design inspired color palette
 const primaryColor = "#a349a4"; // Purple 500 (approx.)
 const primaryLightColor = "#d67bff"; // Purple 200 (approx.)
@@ -56,14 +56,11 @@ export function HomeScreen() {
   };
 
   const renderItem = ({ item }) => {
+    console.log("this item now", item);
+    // return;
     return (
       <View style={styles.cardWrapper}>
-        <CompanyCard
-          wholeData={item}
-          title={item.companyInfo.name}
-          mainImage={item.mainImage}
-          style={styles.companyCard}
-        />
+        <StoryCard item={item} style={styles.companyCard} />
       </View>
     );
   };
@@ -92,7 +89,7 @@ export function HomeScreen() {
       </View>
     );
   }
-  console.log("GET ALL STORIES", allStories);
+  console.log("GET ALL STORIES home", allStories.allStories);
   return (
     <View style={[styles.container, { backgroundColor: secondaryColor }]}>
       <View style={styles.header}>
@@ -130,7 +127,7 @@ export function HomeScreen() {
             tintColor={primaryColor}
           />
         }
-        data={allStories}
+        data={allStories?.allStories}
         renderItem={renderItem}
         keyExtractor={(item) =>
           item?.companyInfo?.id?.toString() || Math.random().toString()
