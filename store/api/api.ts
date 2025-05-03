@@ -209,12 +209,22 @@ export const api = createApi({
         params: {},
       }),
     }),
+    getAllPendingStories: build.query({
+      query: (data) => {
+        console.log("pending all store", data);
+        return {
+          url: `stories/${data.userId}/getAllPendingStories/`,
+          method: "GET",
+        };
+      },
+    }),
     // ... (rest of your endpoints)
   }),
   refetchOnMountOrArgChange: true,
 });
 
 export const {
+  useGetAllPendingStoriesQuery,
   useAuthLoginMutation,
   useGetBooksQuery,
   useGetWeatherQuery,

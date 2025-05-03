@@ -34,6 +34,7 @@ import { NotifierWrapper } from "react-native-notifier";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { UserFeedbackScreen } from "./Screens/UserFeedbackScreen";
 import { FullStoryScreen } from "./Screens/FullStoryScreen";
+import { PendingStoriesScreen } from "./Screens/PendingStoriesScreen";
 // WebView Component
 
 const BottomTab = createBottomTabNavigator();
@@ -64,6 +65,11 @@ function MyBottomTabs() {
         }}
         name="Home"
         component={HomeScreen}
+      />
+      <BottomTab.Screen
+        // options={{ headerShown: false }}
+        name="Pending Stories"
+        component={PendingStoriesScreen}
       />
       <BottomTab.Screen
         // options={{ headerShown: false }}
