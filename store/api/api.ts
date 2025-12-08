@@ -20,7 +20,7 @@ import { authTokenStore } from "@/app/customHooks";
 const createMyBaseQuery = () => {
   return async (args, api, extraOptions) => {
     const rawBaseQuery = fetchBaseQuery({
-      baseUrl: "http://192.168.1.161:3000/",
+      baseUrl: "http://192.168.1.157:3000/",
       prepareHeaders: async (headers, { getState }) => {
         const accessToken = await authTokenStore.getAccessToken();
         if (accessToken) {
@@ -39,7 +39,7 @@ const createMyBaseQuery = () => {
       if (refreshToken) {
         try {
           const refreshResult = await fetch(
-            "http://192.168.1.161:3000/auth/refresh",
+            "http://192.168.1.157:3000/auth/refresh",
             {
               method: "POST",
               headers: {
@@ -111,7 +111,7 @@ export const api = createApi({
     }),
     authLogin: build.mutation<any, any>({
       query: (data) =>
-        console.log("greateness", data) || {
+        console.log("LOGIN ATTEMPT", data) || {
           url: "auth/login",
           method: "POST",
           headers: {
