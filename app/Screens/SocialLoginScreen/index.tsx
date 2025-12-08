@@ -37,12 +37,24 @@ export function SocialLoginScreen() {
   const { storeTokens } = useAuthTokens();
   const navigation = useNavigation();
 
-  const onSubmit = async (data) => {
+  const onSubmit = async (data: any) => {
     const { email, password } = data;
     console.log("emails and all", email, password);
     try {
-      const response = await regularSignIn(data);
-      console.log("Sign In Response:", response?.data);
+      const response: any = await regularSignIn(data);
+      console.log("Sign In Response ghostface:", response);
+
+      // Handle error response
+      if (response?.error) {
+        console.error("Login error:", response.error);
+        const errorMsg = typeof response.error === 'object' ?
+          JSON.stringify(response.error) :
+          String(response.error);
+        setErrorMessage("Login failed: " + errorMsg);
+        return;
+      }
+
+      // Handle success response
       if (response?.data?.token && response?.data?.refreshToken) {
         console.log("if response work ");
         authTokenStore.storeTokens(
@@ -51,14 +63,15 @@ export function SocialLoginScreen() {
         );
         dispatch(login(response?.data.user));
         dispatch(setUserState(response?.data.user)); // Assuming your setUserState expects the user object
-        // await storeTokens(response?.data.token, response?.data.refreshToken);
         setErrorMessage("Login successful!");
         // Navigate to your main app screen here
         // navigation.navigate("Home"); // Replace 'MainApp' with your actual screen name
+      } else {
+        setErrorMessage("Login failed: Invalid response from server");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Sign in error:", err);
-      setErrorMessage("Login failed: " + (err.message || "Network error"));
+      setErrorMessage("Login failed: " + (err?.message || "Network error"));
     }
   };
 
@@ -86,7 +99,7 @@ export function SocialLoginScreen() {
     }
   };
 
-  const handleSignInError = (error) => {
+  const handleSignInError = (error: any) => {
     let message = "An unknown error occurred. Please try again.";
     if (error.code) {
       switch (error.code) {
@@ -116,7 +129,7 @@ export function SocialLoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
+      <Text style={styles.title}>Login ghost</Text>
 
       {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
 
@@ -142,7 +155,7 @@ export function SocialLoginScreen() {
           />
         )}
       />
-      {errors.email && <Text style={styles.error}>{errors.email.message}</Text>}
+      {errors.email && <Text style={styles.error}>{String(errors.email.message)}</Text>}
 
       <Controller
         name="password"
@@ -160,7 +173,7 @@ export function SocialLoginScreen() {
         )}
       />
       {errors.password && (
-        <Text style={styles.error}>{errors.password.message}</Text>
+        <Text style={styles.error}>{String(errors.password.message)}</Text>
       )}
 
       <TouchableOpacity style={styles.button} onPress={handleSubmit(onSubmit)}>
