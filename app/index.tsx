@@ -28,7 +28,7 @@ import { AddReviewScreen } from "./Screens/AddReviewScreen";
 import { BusinessHours } from "./Screens/BusinessHours";
 import { SocialLoginScreen } from "./Screens/SocialLoginScreen";
 import { useSelector } from "react-redux";
-import { useGoogleAuthMutation } from "@/store/api/api";
+// import { useGoogleAuthMutation } from "@/store/api/api";
 import { useNavigation } from "@react-navigation/native";
 import { NotifierWrapper } from "react-native-notifier";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -99,12 +99,12 @@ function RootStack() {
       <StackNav.Screen
         name="Info"
         component={InfoScreen}
-        // Remove options={{ headerShown: false }} from here
+      // Remove options={{ headerShown: false }} from here
       />
       <StackNav.Screen
         name="BusinessHours"
         component={BusinessHours}
-        // Remove options={{ headerShown: false }} from here
+      // Remove options={{ headerShown: false }} from here
       />
       <StackNav.Screen
         options={{ headerShown: false }}
