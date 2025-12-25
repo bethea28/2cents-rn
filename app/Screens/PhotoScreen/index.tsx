@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useSelector } from "react-redux";
-import ImageView from "react-native-image-viewing";
+// import ImageView from "react-native-image-viewing";
 
 const styles = StyleSheet.create({
   imageContainer: {
@@ -59,7 +59,7 @@ export const PhotoScreen = () => {
         keyExtractor={(_, index) => index.toString()}
         numColumns={2}
       />
-
+      {/* 
       <ImageView
         images={images}
         imageIndex={selectedIndex}
@@ -67,7 +67,7 @@ export const PhotoScreen = () => {
         onRequestClose={() => setIsVisible(false)}
         swipeToCloseEnabled={true}
         doubleTapToZoomEnabled={true}
-      />
+      /> */}
     </View>
   );
 };
