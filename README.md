@@ -13,7 +13,10 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 2. Start the app
 
    ```bash
-    npx expo start
+    REMOVE OLD BUILD: DELETE
+    make sure createapi base url is correct
+    ipconfig getifaddr en0     
+    npx expo start -c
    ```
 
 In the output, you'll find options to open the app in a
