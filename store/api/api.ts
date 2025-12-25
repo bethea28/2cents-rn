@@ -124,26 +124,37 @@ export const api = createApi({
           }),
         },
     }),
-    createStory: build.mutation<any, any>({
-      query: (data) =>
-        console.log("create story data", data.formData) || {
-          url: "stories/createStory",
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: objectToUrlEncodedString({
-            title: data.formData.title,
-            storyType: data.formData.storyType,
-            sideAContent: data.formData.sideAContent,
-            sideBContent: data.formData.sideBContent,
-            sideAVideoUrl: data.formData.sideAVideoUrl,
-            sideBVideoUrl: data.formData.sideBVideoUrl,
-            photos: data.formData.photos,
-            sideAAuthorId: data.formData.sideAId,
-            sideBAuthorId: data.formData.sideBId,
-          }),
-        },
+    // createStory: build.mutation<any, any>({
+    //   query: (data) =>
+    //     console.log("create story data", data.formData) || {
+    //       url: "stories/createStory",
+    //       method: "POST",
+    //       headers: {
+    //         "Content-Type": "application/x-www-form-urlencoded",
+    //       },
+    //       body: objectToUrlEncodedString({
+    //         title: data.formData.title,
+    //         storyType: data.formData.storyType,
+    //         sideAContent: data.formData.sideAContent,
+    //         sideBContent: data.formData.sideBContent,
+    //         sideAVideoUrl: data.formData.sideAVideoUrl,
+    //         sideBVideoUrl: data.formData.sideBVideoUrl,
+    //         photos: data.formData.photos,
+    //         sideAAuthorId: data.formData.sideAId,
+    //         sideBAuthorId: data.formData.sideBId,
+    //       }),
+    //     },
+    // }),
+
+    createStory: build.mutation<any, FormData>({
+      query: (formData) => console.log('story data final', formData) || ({
+        url: "stories/createStory",
+        method: "POST",
+        // Note: Do NOT set Content-Type header here. 
+        // RTK Query/Fetch will automatically set it to 'multipart/form-data' 
+        // with the correct boundary when it sees you're passing FormData.
+        body: formData,
+      }),
     }),
     addBook: build.mutation<any, any>({
       query: (data) => ({
