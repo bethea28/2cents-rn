@@ -63,7 +63,7 @@ function MyBottomTabs() {
             </Pressable>
           ),
         }}
-        name="Home"
+        name="Feed"
         component={HomeScreen}
       />
       <BottomTab.Screen
@@ -192,7 +192,7 @@ function MainApp() {
   console.log("ALL USER FINAL DATA", userState);
   return (
     <View style={{ flex: 1 }}>
-      {!userAuth?.userId ? (
+      {userAuth?.userId ? (
         // <NavigationContainer>
         <RootStack />
       ) : (
