@@ -3,11 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { Video } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useUpdateStoryStatusMutation } from "@/store/api/api";
+import CreateStoryModal from '../../Modals/CreateStoryModal'
 
 export const ChallengeDetailsScreen = ({ route, navigation }) => {
     const { story } = route.params;
     const [status, setStatus] = useState({});
     const [updateStory, isLoading] = useUpdateStoryStatusMutation();
+    const [isCameraVisible, setIsCameraVisible] = useState(false);
     return (
         <View style={styles.container}>
             {/* BACK BUTTON */}
@@ -39,13 +41,15 @@ export const ChallengeDetailsScreen = ({ route, navigation }) => {
 
                     // CRITICAL FOR IOS SIMULATOR AUTOPLAY
                     playsInline={true}
-                    onLoad={() => {
+                    onLoad={async () => {
                         // setIsLoading(false);
                         if (!story.sideBAcknowledged) {
                             // We pass one object containing the ID and the specific fields to update
-                            updateStory({
+                            await updateStory({
+                                mode: 'acknowledge',
                                 id: story.id,
-                                sideBAcknowledged: true
+                                sideBAcknowledged: true,
+                                sideBViewedAt: new Date()
                             });
                         }
                     }}
@@ -76,18 +80,20 @@ export const ChallengeDetailsScreen = ({ route, navigation }) => {
             <View style={styles.footer}>
                 <TouchableOpacity
                     style={styles.rebuttalButton}
-                    onPress={() => navigation.navigate('Camera', {
-                        storyId: story.id,
-                        mode: 'rebuttal'
-                    })}
+                    onPress={() => setIsCameraVisible(true)} // Just open the modal
                 >
                     <Text style={styles.buttonText}>RECORD REBUTTAL</Text>
                 </TouchableOpacity>
             </View>
+            <CreateStoryModal
+                visible={isCameraVisible}
+                onClose={() => setIsCameraVisible(false)}
+                mode="rebuttal"
+                storyId={story.id}
+            />
         </View>
     );
 };
-
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
     backButton: { position: 'absolute', top: 50, left: 20, zIndex: 10 },

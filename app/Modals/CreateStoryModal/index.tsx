@@ -6,26 +6,30 @@ import {
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { Video, ResizeMode } from 'expo-av';
 import * as Device from 'expo-device';
-import { useCreateStoryMutation } from "@/store/api/api";
+import { useCreateStoryMutation, useUpdateStoryStatusMutation } from "@/store/api/api";
 
-export default function CreateStoryModal({ visible, onClose }) {
+export default function CreateStoryModal({ visible, onClose, storyId = null, mode = 'new' }) {
     // --- PERMISSIONS & API ---
     const [cameraPermission, requestCameraPermission] = useCameraPermissions();
     const [audioPermission, requestAudioPermission] = useMicrophonePermissions();
-    const [createStory, { isLoading: isUploading }] = useCreateStoryMutation();
+
+    const [createStory, { isLoading: isCreating }] = useCreateStoryMutation();
+    const [updateStory, { isLoading: isUpdating }] = useUpdateStoryStatusMutation();
 
     // --- STATE MANAGEMENT ---
     const [step, setStep] = useState(1); // 1: Record, 2: Details, 3: Success
     const [isRecording, setIsRecording] = useState(false);
     const [videoUri, setVideoUri] = useState(null);
-    const [title, setTitle] = useState(''); // Add this to your State section
+    const [title, setTitle] = useState('');
     const [opponent, setOpponent] = useState('');
     const [stake, setStake] = useState('Lunch');
     const cameraRef = useRef(null);
 
+    const isLoading = isCreating || isUpdating;
+
     // --- PERMISSIONS UI ---
     if (!cameraPermission || !audioPermission) {
-        return <View style={styles.container} />; // Loading state
+        return <View style={styles.container} />;
     }
 
     if (!cameraPermission.granted || !audioPermission.granted) {
@@ -55,7 +59,6 @@ export default function CreateStoryModal({ visible, onClose }) {
     const startRecording = async () => {
         if (isRecording || !cameraRef.current) return;
 
-        // Simulator Bypass
         if (!Device.isDevice) {
             console.log("BYPASS: Running on Simulator");
             setVideoUri("https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4");
@@ -65,13 +68,10 @@ export default function CreateStoryModal({ visible, onClose }) {
 
         try {
             setIsRecording(true);
-            console.log("Recording started...");
             const video = await cameraRef.current.recordAsync({
                 maxDuration: 60,
                 quality: '720p',
             });
-
-            // This runs after stopRecording() is called
             setVideoUri(video.uri);
             setStep(2);
         } catch (error) {
@@ -93,75 +93,76 @@ export default function CreateStoryModal({ visible, onClose }) {
     };
 
     // --- UPLOAD LOGIC ---
-
     const handleFinish = async () => {
-        if (!title || !opponent) {
-            Alert.alert("Missing Info", "Please provide a title and an opponent.");
-            return;
-        }
-
         const formData = new FormData();
 
-        // 1. Video
-        formData.append('sideAVideo', {
-            uri: videoUri,
-            name: 'challenge.mp4',
-            type: 'video/mp4',
-        } as any);
+        if (mode === 'rebuttal') {
+            // REBUTTAL FLOW
+            formData.append('sideBVideo', {
+                uri: videoUri,
+                // uri: videoUri,
+                name: 'rebuttal.mp4',
+                type: 'video/mp4',
+            });
+            formData.append('status', 'complete');
+            formData.append('sideBAcknowledged', 'true');
 
-        // 2. Updated fields
-        formData.append('title', title); // Now dynamic!
-        formData.append('sideAAuthorId', '2');
-        formData.append('opponentHandle', opponent);
-        formData.append('stake', stake);
-        formData.append('storyType', 'call-out');
+            try {
+                await updateStory({ id: storyId, formData }).unwrap();
+                setStep(3);
+            } catch (err) {
+                Alert.alert("Rebuttal Failed", err.data?.error || "Could not post response.");
+            }
+        } else {
+            // NEW CHALLENGE FLOW
+            if (!title || !opponent) {
+                Alert.alert("Missing Info", "Please provide a title and an opponent.");
+                return;
+            }
 
-        // try {
-        //     await createStory(formData).unwrap();
-        //     setStep(3);
-        // } catch (err) {
-        //     console.error("Upload failed", err);
-        //     Alert.alert("Upload Error", "Server could not process the story.");
-        // }
+            formData.append('sideAVideo', {
+                uri: videoUri,
+                name: 'challenge.mp4',
+                type: 'video/mp4',
+            });
+            formData.append('title', title);
+            formData.append('opponentHandle', opponent);
+            formData.append('stake', stake);
+            formData.append('storyType', 'call-out');
 
-        // Inside CreateStoryModal.js
-        try {
-            await createStory(formData).unwrap();
-            setStep(3);
-        } catch (err) {
-            // err.data.error will contain the message from the backend
-            const errorMessage = err.data?.error || "Upload failed. Please try again.";
-            Alert.alert("Challenge Failed", errorMessage);
+            try {
+                await createStory(formData).unwrap();
+                setStep(3);
+            } catch (err) {
+                Alert.alert("Challenge Failed", err.data?.error || "Upload failed.");
+            }
         }
     };
 
     const resetFlow = () => {
-        setStep(1);           // Go back to recording screen
-        setVideoUri(null);    // Clear video
-        setTitle('');         // 👈 Clear the title
-        setOpponent('');      // 👈 Clear the opponent
-        setStake('Lunch');    // 👈 Reset to default stake
+        setStep(1);
+        setVideoUri(null);
+        setTitle('');
+        setOpponent('');
+        setStake('Lunch');
         setIsRecording(false);
-        onClose();            // Close the modal
+        onClose();
     };
+
     return (
         <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
             <View style={styles.container}>
 
                 {/* STEP 1: RECORDING */}
                 {step === 1 && (
-                    <CameraView
-                        style={styles.camera}
-                        ref={cameraRef}
-                        mode="video"
-                    >
+                    <CameraView style={styles.camera} ref={cameraRef} mode="video">
                         <View style={styles.overlay}>
                             <TouchableOpacity onPress={onClose} style={styles.backBtn}>
                                 <Text style={{ color: 'white', fontWeight: 'bold' }}>Cancel</Text>
                             </TouchableOpacity>
-
-                            <Text style={styles.cameraHeader}>State Your Case</Text>
-
+                            <Text style={styles.cameraHeader}>
+                                {mode === 'rebuttal' ? "Your Rebuttal" : "State Your Case"}
+                            </Text>
                             <TouchableOpacity
                                 style={[styles.recordButton, isRecording && styles.recordingActive]}
                                 onLongPress={startRecording}
@@ -170,7 +171,6 @@ export default function CreateStoryModal({ visible, onClose }) {
                             >
                                 <View style={styles.innerRecordCircle} />
                             </TouchableOpacity>
-
                             <Text style={styles.instruction}>
                                 {isRecording ? "RECORDING..." : "HOLD TO RECORD"}
                             </Text>
@@ -178,7 +178,6 @@ export default function CreateStoryModal({ visible, onClose }) {
                     </CameraView>
                 )}
 
-                {/* STEP 2: PREVIEW & DETAILS */}
                 {/* STEP 2: PREVIEW & DETAILS */}
                 {step === 2 && (
                     <View style={styles.formContainer}>
@@ -192,45 +191,55 @@ export default function CreateStoryModal({ visible, onClose }) {
                         />
 
                         <View style={styles.inputSection}>
-                            <Text style={styles.label}>What's the Beef?</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="e.g. Someone stole my lunch"
-                                value={title}
-                                onChangeText={setTitle}
-                            />
-
-                            <Text style={styles.label}>Who are you calling out?</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="@username"
-                                value={opponent}
-                                onChangeText={setOpponent}
-                                autoCapitalize="none"
-                            />
-
-                            {/* --- ADD THIS PART BACK IN --- */}
-                            <Text style={styles.label}>What are the stakes?</Text>
-                            <View style={styles.chipContainer}>
-                                {['Lunch', 'Apology', '$20'].map(s => (
-                                    <TouchableOpacity
-                                        key={s}
-                                        style={[styles.chip, stake === s && styles.activeChip]}
-                                        onPress={() => setStake(s)}
-                                    >
-                                        <Text style={stake === s ? { color: 'white' } : {}}>{s}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
+                            {mode === 'rebuttal' ? (
+                                <View style={styles.rebuttalInfo}>
+                                    <Text style={styles.rebuttalTitle}>Ready to Fire Back?</Text>
+                                    <Text style={styles.subtext}>This will complete the beef and notify the challenger.</Text>
+                                </View>
+                            ) : (
+                                <>
+                                    <Text style={styles.label}>What's the Beef?</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="e.g. Someone stole my lunch"
+                                        value={title}
+                                        onChangeText={setTitle}
+                                    />
+                                    <Text style={styles.label}>Who are you calling out?</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="@username"
+                                        value={opponent}
+                                        onChangeText={setOpponent}
+                                        autoCapitalize="none"
+                                    />
+                                    <Text style={styles.label}>What are the stakes?</Text>
+                                    <View style={styles.chipContainer}>
+                                        {['Lunch', 'Apology', '$20'].map(s => (
+                                            <TouchableOpacity
+                                                key={s}
+                                                style={[styles.chip, stake === s && styles.activeChip]}
+                                                onPress={() => setStake(s)}
+                                            >
+                                                <Text style={stake === s ? { color: 'white' } : {}}>{s}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                </>
+                            )}
 
                             <TouchableOpacity
-                                style={styles.submitButton}
+                                style={[styles.submitButton, mode === 'rebuttal' && { backgroundColor: '#FF3B30' }]}
                                 onPress={handleFinish}
-                                disabled={isUploading} // Prevent double-taps
+                                disabled={isLoading}
                             >
-                                <Text style={styles.buttonText}>
-                                    {isUploading ? "UPLOADING..." : "ISSUE CHALLENGE"}
-                                </Text>
+                                {isLoading ? (
+                                    <ActivityIndicator color="white" />
+                                ) : (
+                                    <Text style={styles.buttonText}>
+                                        {mode === 'rebuttal' ? "SEND REBUTTAL" : "ISSUE CHALLENGE"}
+                                    </Text>
+                                )}
                             </TouchableOpacity>
 
                             <TouchableOpacity onPress={() => setStep(1)} style={{ marginTop: 15 }}>
@@ -243,9 +252,11 @@ export default function CreateStoryModal({ visible, onClose }) {
                 {/* STEP 3: SUCCESS */}
                 {step === 3 && (
                     <View style={styles.successContainer}>
-                        <Text style={styles.giantEmoji}>⚖️</Text>
-                        <Text style={styles.header}>Case Filed!</Text>
-                        <Text style={styles.subtext}>Challenge sent to {opponent}.</Text>
+                        <Text style={styles.giantEmoji}>{mode === 'rebuttal' ? "🔥" : "⚖️"}</Text>
+                        <Text style={styles.header}>{mode === 'rebuttal' ? "Rebuttal Sent!" : "Case Filed!"}</Text>
+                        <Text style={styles.subtext}>
+                            {mode === 'rebuttal' ? "The beef is now complete." : `Challenge sent to ${opponent}.`}
+                        </Text>
                         <TouchableOpacity style={styles.finalButton} onPress={resetFlow}>
                             <Text style={styles.buttonText}>Back to Feed</Text>
                         </TouchableOpacity>
@@ -268,7 +279,6 @@ const styles = StyleSheet.create({
     innerRecordCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'red' },
     instruction: { color: 'white', marginTop: 15, fontWeight: 'bold', letterSpacing: 1 },
     backBtn: { position: 'absolute', top: 60, left: 20, padding: 10 },
-
     formContainer: { flex: 1, backgroundColor: '#fff' },
     previewVideo: { width: '100%', height: '45%' },
     inputSection: { padding: 20 },
@@ -277,9 +287,10 @@ const styles = StyleSheet.create({
     chipContainer: { flexDirection: 'row', gap: 10, marginBottom: 25 },
     chip: { paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#f0f0f0', borderRadius: 20 },
     activeChip: { backgroundColor: '#8a2be2' },
-    submitButton: { backgroundColor: '#8a2be2', padding: 18, borderRadius: 15, alignItems: 'center' },
+    submitButton: { backgroundColor: '#8a2be2', padding: 18, borderRadius: 15, alignItems: 'center', minHeight: 60, justifyContent: 'center' },
     buttonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-
+    rebuttalInfo: { alignItems: 'center', marginVertical: 40 },
+    rebuttalTitle: { fontSize: 24, fontWeight: 'bold', color: '#000' },
     successContainer: { flex: 1, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', padding: 30 },
     giantEmoji: { fontSize: 80, marginBottom: 20 },
     header: { fontSize: 28, fontWeight: 'bold' },
