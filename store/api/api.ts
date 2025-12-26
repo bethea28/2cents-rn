@@ -74,13 +74,14 @@ const createMyBaseQuery = () => {
     }
 
     return result;
-  };
+  }
 };
 export const api = createApi({
   reducerPath: "api",
   baseQuery: createMyBaseQuery(),
-  tagTypes: [],
-  endpoints: (build) => ({
+  tagTypes: [
+    "stories",
+  ], endpoints: (build) => ({
     getWeather: build.query<any, void>({
       queryFn: async () => {
         const req = await fetch("https://api.escuelajs.co/api/v1/products");
@@ -155,6 +156,7 @@ export const api = createApi({
         // with the correct boundary when it sees you're passing FormData.
         body: formData,
       }),
+      // providesTags: ['stories'],
     }),
     updateStoryStatus: build.mutation({
       query: ({ id, ...patch }) => console.log('update story', patch) || ({
@@ -163,7 +165,7 @@ export const api = createApi({
         body: patch,          // Sending { sideBAcknowledged: true }
       }),
       // This tells RTK Query the 'Stories' list is now old data, so go fetch the fresh version
-      // invalidatesTags: ['Stories'],
+      invalidatesTags: ['stories'],
     }),
     addBook: build.mutation<any, any>({
       query: (data) => ({
@@ -240,7 +242,7 @@ export const api = createApi({
       },
       // Provides a tag so we can 'invalidate' this cache later 
       // (e.g., after Dan records his rebuttal, the list should refresh)
-      // providesTags: ['Stories'],
+      providesTags: ['stories'],
     }),
     // ... (rest of your endpoints)
   }),
