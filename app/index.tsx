@@ -35,6 +35,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { UserFeedbackScreen } from "./Screens/UserFeedbackScreen";
 import { FullStoryScreen } from "./Screens/FullStoryScreen";
 import { PendingStoriesScreen } from "./Screens/PendingStoriesScreen";
+import { ChallengeDetailsScreen } from "./Screens/ChallengeDetailsScreen";
+import { ChallengesScreen } from "./Screens/ChallengesScreen";
 // WebView Component
 
 const BottomTab = createBottomTabNavigator();
@@ -68,8 +70,8 @@ function MyBottomTabs() {
       />
       <BottomTab.Screen
         // options={{ headerShown: false }}
-        name="Pending Stories"
-        component={PendingStoriesScreen}
+        name="Challenges"
+        component={ChallengesScreen}
       />
       <BottomTab.Screen
         // options={{ headerShown: false }}
@@ -95,6 +97,7 @@ function RootStack() {
       />
       <StackNav.Screen name="AddStory" component={AddStoryScreen} />
       <StackNav.Screen name="Details" component={DetailsScreen} />
+      <StackNav.Screen name="ChallengeDetailsScreen" component={ChallengeDetailsScreen} />
       <StackNav.Screen name="FullStoryScreen" component={FullStoryScreen} />
       <StackNav.Screen
         name="Info"

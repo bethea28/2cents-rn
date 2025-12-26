@@ -13,7 +13,7 @@ export function HomeScreen() {
           style={styles.createButton}
           onPress={() => setIsModalVisible(true)}
         >
-          <Text style={styles.buttonText}>Call Out bryan</Text>
+          <Text style={styles.buttonText}>Call Out</Text>
         </TouchableOpacity>
       </View>
 
