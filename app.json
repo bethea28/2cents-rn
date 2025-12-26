@@ -14,7 +14,10 @@
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to record stories.",
         "NSPhotoLibraryUsageDescription": "This app needs access to the photo library to select photos.",
-        "NSMicrophoneUsageDescription": "This app needs access to the microphone to record audio for your stories."
+        "NSMicrophoneUsageDescription": "This app needs access to the microphone to record audio for your stories.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
       }
     },
     "android": {

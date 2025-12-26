@@ -20,11 +20,24 @@ export const ChallengeDetailsScreen = ({ route, navigation }) => {
             {/* VIDEO SECTION */}
             <View style={styles.videoWrapper}>
                 <Video
-                    source={{ uri: story.sideAVideoUrl }}
+                    // source={{ uri: story.sideAVideoUrl }}
+                    source={{
+                        uri: 'https://firebasestorage.googleapis.com/v0/b/cents-fe1c4.firebasestorage.app/o/videos%2Ftest-vid.mp4?alt=media&token=429f748c-c13e-4ebf-8878-3fb24cd4879a'
+                    }}
                     style={styles.video}
                     resizeMode="cover"
-                    useNativeControls
+
+                    // AUTOPLAY SETTINGS
+                    shouldPlay={true}          // Starts playing automatically
+                    isLooping={true}           // Restarts when finished
+                    isMuted={false}            // Set to true if you want it silent until they interact
+
+                    // CONTROLS & FEEDBACK
+                    useNativeControls={true}
                     onPlaybackStatusUpdate={status => setStatus(() => status)}
+
+                    // CRITICAL FOR IOS SIMULATOR AUTOPLAY
+                    playsInline={true}
                 />
                 {!status.isLoaded && (
                     <ActivityIndicator size="large" color="#FF3B30" style={styles.loader} />
