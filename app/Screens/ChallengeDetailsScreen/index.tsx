@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Video } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
+import { useUpdateStoryStatusMutation } from "@/store/api/api";
 
 export const ChallengeDetailsScreen = ({ route, navigation }) => {
     const { story } = route.params;
     const [status, setStatus] = useState({});
-
+    const [updateStory, isLoading] = useUpdateStoryStatusMutation();
     return (
         <View style={styles.container}>
             {/* BACK BUTTON */}
@@ -38,6 +39,16 @@ export const ChallengeDetailsScreen = ({ route, navigation }) => {
 
                     // CRITICAL FOR IOS SIMULATOR AUTOPLAY
                     playsInline={true}
+                    onLoad={() => {
+                        // setIsLoading(false);
+                        if (!story.sideBAcknowledged) {
+                            // We pass one object containing the ID and the specific fields to update
+                            updateStory({
+                                id: story.id,
+                                sideBAcknowledged: true
+                            });
+                        }
+                    }}
                 />
                 {!status.isLoaded && (
                     <ActivityIndicator size="large" color="#FF3B30" style={styles.loader} />

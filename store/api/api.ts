@@ -156,6 +156,15 @@ export const api = createApi({
         body: formData,
       }),
     }),
+    updateStoryStatus: build.mutation({
+      query: ({ id, ...patch }) => console.log('update story', patch) || ({
+        url: `stories/${id}`, // Targeting the specific beef by ID
+        method: "PATCH",      // PATCH is industry standard for partial updates
+        body: patch,          // Sending { sideBAcknowledged: true }
+      }),
+      // This tells RTK Query the 'Stories' list is now old data, so go fetch the fresh version
+      // invalidatesTags: ['Stories'],
+    }),
     addBook: build.mutation<any, any>({
       query: (data) => ({
         url: "bryan/bookPost/",
@@ -240,49 +249,16 @@ export const api = createApi({
 
 export const {
   useGetAllPendingStoriesQuery,
-  useAuthLoginMutation,
   useGetBooksQuery,
   useGetWeatherQuery,
   useGetDjangoQuery,
+  useGetReviewsQuery,
   useAddReviewMutation,
   useGetAllStoriesQuery,
   useAddCompanyMutation,
   useGoogleAuthMutation,
-  useGetReviewsQuery,
+  useAuthLoginMutation,
   useAddFeedbackMutation,
   useCreateStoryMutation,
-  useGetMyShiftsQuery,
-  useGetCalendarDataQuery,
-  useApiSessionQuery,
-  useGetSchedulesQuery,
-  useGetPayrollGroupQuery,
-  useGetShiftsToGrabQuery,
-  useOfferShiftRequestMutation,
-  useGrabShiftRequestMutation,
-  useGetTeamShiftsQuery,
-  useGetAccountInfoQuery,
-  useGetPTORequestsQuery,
-  useGetAlertsSettingsQuery,
-  useToggleAllowAlertsMutation,
-  useSetAlertMutation,
-  useGetSwapAlertsQuery,
-  useGetUpcomingShiftsQuery,
-  useGetManagersOnDutyQuery,
-  useProposeShiftSwapMutation,
-  useShiftManagementApprovalMutation,
-  useGetPTOQuery,
-  useSubmitPTOMutation,
-  useCancelTimeOffMutation,
-  useGetTodayWeatherQuery,
-  useGetUnavailabilityCalendarQuery,
-  useGetPayHistoryQuery,
-  useGetNotficationAlertsQuery,
-  useSubmitUnavailabilityMutation,
-  useCancelUnavailabilityRequestMutation,
-  useSubmitMessgeMutation,
-  useSubscribeForPushNotificationsMutation,
-  useIsPublishedQuery,
-  usePublishedCountsQuery,
-  useGetSwappableShiftsQuery,
-  useGetMyRequestsQuery,
+  useUpdateStoryStatusMutation
 } = api;
