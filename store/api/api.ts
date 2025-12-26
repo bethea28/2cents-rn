@@ -222,13 +222,16 @@ export const api = createApi({
       }),
     }),
     getAllPendingStories: build.query({
-      query: (data) => {
-        console.log("pending all store", data);
+      query: (userId) => {
+        console.log("Fetching pending stories for User ID:", userId);
         return {
-          url: `stories/${data.userId}/getAllPendingStories/`,
+          url: `stories/${userId}/getAllPendingStories`, // Match your backend route path
           method: "GET",
         };
       },
+      // Provides a tag so we can 'invalidate' this cache later 
+      // (e.g., after Dan records his rebuttal, the list should refresh)
+      // providesTags: ['Stories'],
     }),
     // ... (rest of your endpoints)
   }),
