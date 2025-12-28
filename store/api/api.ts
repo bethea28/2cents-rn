@@ -254,12 +254,26 @@ export const api = createApi({
       providesTags: ['stories'],
     }),
     // ... (rest of your endpoints)
+    getAllCompleteStories: build.query({
+      query: () => {
+        console.log("Fetching pending stories for User ID:");
+        return {
+          url: `stories/getAllCompleteStories`, // Match your backend route path
+          method: "GET",
+        };
+      },
+      // Provides a tag so we can 'invalidate' this cache later 
+      // (e.g., after Dan records his rebuttal, the list should refresh)
+      providesTags: ['stories'],
+    }),
+    // ... (rest of your endpoints)
   }),
   refetchOnMountOrArgChange: true,
 });
 
 export const {
   useGetAllPendingStoriesQuery,
+  useGetAllCompleteStoriesQuery,
   useGetBooksQuery,
   useGetWeatherQuery,
   useGetDjangoQuery,

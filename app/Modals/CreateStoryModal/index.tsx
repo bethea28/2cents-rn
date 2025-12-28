@@ -64,7 +64,7 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
 
         if (!Device.isDevice) {
             console.log("BYPASS: Running on Simulator");
-            setVideoUri("https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4");
+            setVideoUri("https://vjs.zencdn.net/v/oceans.mp4");
             setStep(2);
             return;
         }
@@ -147,8 +147,8 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
     };
 
     const resetFlow = () => {
-        // setStep(1);
-        navigation.navigate("Home");
+        setStep(1);
+        // navigation.navigate("Home");
         setVideoUri(null);
         setTitle('');
         setOpponent('');

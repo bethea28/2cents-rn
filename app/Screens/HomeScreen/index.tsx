@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 import CreateStoryModal from '../../Modals/CreateStoryModal'
 import { useSelector } from "react-redux";
+import { StoriesFeed } from '../../Components/StoriesFeed'
+
 export function HomeScreen() {
   const userData = useSelector((state) => state.counter.userState);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [feed] = useState([])
-  console.log('USER NAME NOW', userData)
+  console.log('USER NAME NOW', feed)
   return (
     <SafeAreaView style={styles.container}>
       {/* Header with the Purple Create Button */}
@@ -23,6 +25,7 @@ export function HomeScreen() {
       <Text style={styles.headerTitle}>{userData.email}</Text>
 
       {/* Main Feed Area */}
+      <StoriesFeed />
       {feed.length > 0 && <View style={styles.feedPlaceholder}>
         <Text style={styles.placeholderText}>Your 2cents Feed will appear here.</Text>
         <TouchableOpacity
