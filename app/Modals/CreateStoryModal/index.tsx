@@ -7,6 +7,7 @@ import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo
 import { Video, ResizeMode } from 'expo-av';
 import * as Device from 'expo-device';
 import { useCreateStoryMutation, useUpdateStoryStatusMutation, useHandleStoryRebuttalMutation } from "@/store/api/api";
+import { useNavigation } from "@react-navigation/native";
 
 export default function CreateStoryModal({ visible, onClose, storyId = null, mode = 'new' }) {
     // --- PERMISSIONS & API ---
@@ -25,6 +26,7 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
     const [opponent, setOpponent] = useState('');
     const [stake, setStake] = useState('Lunch');
     const cameraRef = useRef(null);
+    const navigation = useNavigation();
 
     const isLoading = isCreating || isUpdating;
 
@@ -145,13 +147,15 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
     };
 
     const resetFlow = () => {
-        setStep(1);
+        // setStep(1);
+        navigation.navigate("Home");
         setVideoUri(null);
         setTitle('');
         setOpponent('');
         setStake('Lunch');
         setIsRecording(false);
         onClose();
+
     };
 
     return (
