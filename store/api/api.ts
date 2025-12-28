@@ -20,8 +20,8 @@ import { authTokenStore } from "@/app/customHooks";
 const createMyBaseQuery = () => {
   return async (args, api, extraOptions) => {
     const rawBaseQuery = fetchBaseQuery({
-      // baseUrl: "http://192.168.1.157:3000/",
-      baseUrl: "http://172.20.10.4:3000/", //hotspot iphone
+      baseUrl: "http://192.168.1.153:3000/",
+      // baseUrl: "http://172.20.10.4:3000/", //hotspot iphone
       prepareHeaders: async (headers, { getState }) => {
         const accessToken = await authTokenStore.getAccessToken();
         if (accessToken) {
@@ -167,6 +167,15 @@ export const api = createApi({
       // This tells RTK Query the 'Stories' list is now old data, so go fetch the fresh version
       invalidatesTags: ['stories'],
     }),
+    handleStoryRebuttal: build.mutation({
+      query: ({ id, formData }) => console.log('handel rebuttal story', formData) || ({
+        url: `stories/rebuttal/${id}`, // Targeting the specific beef by ID
+        method: "PATCH",      // PATCH is industry standard for partial updates
+        body: formData,          // Sending { sideBAcknowledged: true }
+      }),
+      // This tells RTK Query the 'Stories' list is now old data, so go fetch the fresh version
+      invalidatesTags: ['stories'],
+    }),
     addBook: build.mutation<any, any>({
       query: (data) => ({
         url: "bryan/bookPost/",
@@ -262,5 +271,6 @@ export const {
   useAuthLoginMutation,
   useAddFeedbackMutation,
   useCreateStoryMutation,
-  useUpdateStoryStatusMutation
+  useUpdateStoryStatusMutation,
+  useHandleStoryRebuttalMutation
 } = api;

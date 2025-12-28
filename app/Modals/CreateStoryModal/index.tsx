@@ -6,7 +6,7 @@ import {
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { Video, ResizeMode } from 'expo-av';
 import * as Device from 'expo-device';
-import { useCreateStoryMutation, useUpdateStoryStatusMutation } from "@/store/api/api";
+import { useCreateStoryMutation, useUpdateStoryStatusMutation, useHandleStoryRebuttalMutation } from "@/store/api/api";
 
 export default function CreateStoryModal({ visible, onClose, storyId = null, mode = 'new' }) {
     // --- PERMISSIONS & API ---
@@ -15,6 +15,7 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
 
     const [createStory, { isLoading: isCreating }] = useCreateStoryMutation();
     const [updateStory, { isLoading: isUpdating }] = useUpdateStoryStatusMutation();
+    const [handleRebuttal] = useHandleStoryRebuttalMutation();
 
     // --- STATE MANAGEMENT ---
     const [step, setStep] = useState(1); // 1: Record, 2: Details, 3: Success
@@ -73,6 +74,8 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
                 quality: '720p',
             });
             setVideoUri(video.uri);
+            // setVideoUri("https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4");
+
             setStep(2);
         } catch (error) {
             console.error("Recording failed", error);
@@ -98,19 +101,21 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
 
         if (mode === 'rebuttal') {
             // REBUTTAL FLOW
-            formData.append('sideBVideo', {
+            console.log('gza rebuttal', videoUri)
+            formData.append('video', {
                 uri: videoUri,
-                // uri: videoUri,
+                // uri: 'https://firebasestorage.googleapis.com/v0/b/cents-fe1c4.firebasestorage.app/o/videos%2Ftest-vid.mp4?alt=media&token=429f748c-c13e-4ebf-8878-3fb24cd4879a',
                 name: 'rebuttal.mp4',
                 type: 'video/mp4',
             });
             formData.append('status', 'complete');
             formData.append('sideBAcknowledged', 'true');
-
+            console.log('SENDING DATA FORM', formData._parts)
             try {
-                await updateStory({ id: storyId, formData }).unwrap();
+                await handleRebuttal({ id: storyId, formData }).unwrap();
                 setStep(3);
             } catch (err) {
+                console.log('ERROR TOO', err.data)
                 Alert.alert("Rebuttal Failed", err.data?.error || "Could not post response.");
             }
         } else {
@@ -120,7 +125,7 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
                 return;
             }
 
-            formData.append('sideAVideo', {
+            formData.append('video', {
                 uri: videoUri,
                 name: 'challenge.mp4',
                 type: 'video/mp4',
