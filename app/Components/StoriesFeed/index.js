@@ -9,25 +9,31 @@ import {
     SafeAreaView,
     Dimensions
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useIsFocused } from "@react-navigation/native";
 import { useGetAllCompleteStoriesQuery } from "@/store/api/api";
 import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
-import { useIsFocused } from "@react-navigation/native"; //
+
 const { width } = Dimensions.get('window');
 
 /**
  * ARENA CARD COMPONENT
  */
-const ArenaCard = React.memo(({ item, isActive }) => {
+const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
     const navigation = useNavigation();
     const hasRebuttal = !!item.sideBVideoUrl;
 
+    // 'A' for Challenger, 'B' for Rebuttal
+    const [audioFocus, setAutoFocus] = React.useState('A');
+
+    // Reset audio focus to Challenger when card becomes inactive to keep it clean
+    React.useEffect(() => {
+        if (!isActive) setAutoFocus('A');
+    }, [isActive]);
+
     return (
-        <Pressable
-            style={styles.card}
-            onPress={() => navigation.navigate("FullStoryScreen", { story: item })}
-        >
+        <View style={styles.card}>
+            {/* Header Area */}
             <View style={styles.cardHeader}>
                 <View style={styles.headerLeft}>
                     <Text style={styles.title}>{item.title}</Text>
@@ -41,60 +47,77 @@ const ArenaCard = React.memo(({ item, isActive }) => {
                 </View>
             </View>
 
+            {/* THE ARENA */}
             <View style={styles.versusArena}>
+
                 {/* SIDE A: CHALLENGER */}
-                <View style={styles.videoHalf}>
+                <Pressable
+                    style={styles.videoStack}
+                    onPress={() => setAutoFocus('A')}
+                >
                     <Video
                         source={{ uri: item.sideAVideoUrl }}
                         style={StyleSheet.absoluteFill}
                         resizeMode={ResizeMode.COVER}
                         shouldPlay={isActive}
                         isLooping
-                        isMuted={false}
-                        // STAFF FIX: Firebase sometimes needs headers or explicit stays
-                        shouldCorrectPitch={true}
-                        progressUpdateIntervalMillis={1000}
-                        // Added to ensure the video container is active
-                        onLoadStart={() => console.log(`Loading Side A for: ${item.title}`)}
-                        onError={(err) => console.log("Video Error:", err)}
+                        isMuted={isAppMuted || !isActive || audioFocus !== 'A'}
                     />
-                    <View style={styles.overlay}>
+                    <View style={[styles.topLabelContainer, audioFocus === 'A' && styles.activeAudioLabel]}>
+                        <Ionicons name={audioFocus === 'A' ? "volume-high" : "volume-mute"} size={10} color="white" style={{ marginRight: 4 }} />
                         <Text style={styles.sideLabel}>CHALLENGER</Text>
                     </View>
-                </View>
+                </Pressable>
 
-                <View style={styles.vsBadge}><Text style={styles.vsText}>VS</Text></View>
+                {/* THE HORIZON METER / VS BADGE */}
+                <Pressable
+                    style={styles.horizonLine}
+                    onPress={() => navigation.navigate("FullStoryScreen", { story: item })}
+                >
+                    <View style={styles.vsBadge}>
+                        <Text style={styles.vsText}>VS</Text>
+                    </View>
+                    <View style={styles.miniMeter}>
+                        <View style={[styles.meterFill, { width: '60%', backgroundColor: '#a349a4' }]} />
+                    </View>
+                </Pressable>
 
                 {/* SIDE B: REBUTTAL */}
-                <View style={[styles.videoHalf, !hasRebuttal && styles.emptySide]}>
+                <Pressable
+                    style={[styles.videoStack, !hasRebuttal && styles.emptySide]}
+                    onPress={() => hasRebuttal ? setAutoFocus('B') : null}
+                >
                     {hasRebuttal ? (
                         <Video
-                            source={{
-                                uri: item.sideBVideoUrl,
-                                headers: { 'User-Agent': 'MobileApp' }
-                            }}
+                            source={{ uri: item.sideBVideoUrl }}
                             style={StyleSheet.absoluteFill}
                             resizeMode={ResizeMode.COVER}
                             shouldPlay={isActive}
                             isLooping
-                            isMuted={true}
+                            isMuted={isAppMuted || !isActive || audioFocus !== 'B'}
                         />
                     ) : (
                         <View style={styles.center}>
-                            <Ionicons name="hourglass-outline" size={24} color="#666" />
+                            <Ionicons name="hourglass-outline" size={20} color="#333" />
+                            <Text style={styles.waitingText}>WAITING FOR SMOKE...</Text>
                         </View>
                     )}
-                    <View style={styles.overlay}>
-                        <Text style={styles.sideLabel}>{hasRebuttal ? "REBUTTAL" : "WAITING..."}</Text>
+                    <View style={[styles.bottomLabelContainer, audioFocus === 'B' && styles.activeAudioLabel]}>
+                        <Text style={styles.sideLabel}>{hasRebuttal ? "REBUTTAL" : "WAITING"}</Text>
+                        <Ionicons name={audioFocus === 'B' ? "volume-high" : "volume-mute"} size={10} color="white" style={{ marginLeft: 4 }} />
                     </View>
-                </View>
+                </Pressable>
             </View>
 
-            <View style={styles.cardFooter}>
+            {/* Footer / Navigation Trigger */}
+            <Pressable
+                style={styles.cardFooter}
+                onPress={() => navigation.navigate("FullStoryScreen", { story: item })}
+            >
                 <Text style={styles.dateText}>Settled {new Date(item.updatedAt).toLocaleDateString()}</Text>
-                <Text style={styles.watchText}>WATCH DUEL →</Text>
-            </View>
-        </Pressable>
+                <Text style={styles.watchText}>ENTER ARENA →</Text>
+            </Pressable>
+        </View>
     );
 });
 /**
@@ -103,8 +126,9 @@ const ArenaCard = React.memo(({ item, isActive }) => {
 export const StoriesFeed = () => {
     const { data: stories, isLoading, isFetching, refetch } = useGetAllCompleteStoriesQuery();
     const [activeId, setActiveId] = React.useState(null);
-    const isFocused = useIsFocused(); //
-    // Ensure the first video plays if nothing has scrolled yet
+    const [isAppMuted, setIsAppMuted] = React.useState(true); // START MUTED (UX Law)
+    const isFocused = useIsFocused();
+
     React.useEffect(() => {
         if (stories?.length > 0 && !activeId) {
             setActiveId(stories[0].id);
@@ -112,7 +136,7 @@ export const StoriesFeed = () => {
     }, [stories]);
 
     const viewabilityConfig = React.useRef({
-        itemVisiblePercentThreshold: 60, // Card must be 60% visible to trigger play
+        itemVisiblePercentThreshold: 80,
     }).current;
 
     const onViewableItemsChanged = React.useRef(({ viewableItems }) => {
@@ -125,17 +149,29 @@ export const StoriesFeed = () => {
         return (
             <View style={styles.center}>
                 <ActivityIndicator size="large" color="#a349a4" />
-                <Text style={styles.loadingText}>LOADING ARENA...</Text>
+                <Text style={styles.loadingText}>PREPARING THE ARENA...</Text>
             </View>
         );
     }
 
     return (
         <SafeAreaView style={styles.container}>
+            {/* GLOBAL MUTE TOGGLE (Floating) */}
+            <Pressable
+                style={styles.muteToggle}
+                onPress={() => setIsAppMuted(!isAppMuted)}
+            >
+                <Ionicons
+                    name={isAppMuted ? "volume-mute" : "volume-high"}
+                    size={22}
+                    color="white"
+                />
+            </Pressable>
+
             <View style={styles.pageHeader}>
                 <Text style={styles.headerTitle}>Arena</Text>
                 <Pressable onPress={() => refetch()} style={styles.refreshIcon}>
-                    <Ionicons name="refresh" size={22} color="white" />
+                    <Ionicons name="flash" size={22} color="#FFD700" />
                 </Pressable>
             </View>
 
@@ -145,8 +181,8 @@ export const StoriesFeed = () => {
                 renderItem={({ item }) => (
                     <ArenaCard
                         item={item}
-                        // Card only plays if it's the active item AND the tab is focused
                         isActive={item.id === activeId && isFocused}
+                        isAppMuted={isAppMuted}
                     />
                 )}
                 onViewableItemsChanged={onViewableItemsChanged}
@@ -155,11 +191,10 @@ export const StoriesFeed = () => {
                 refreshing={isFetching}
                 onRefresh={refetch}
                 showsVerticalScrollIndicator={false}
-                // Performance settings
                 removeClippedSubviews={true}
                 initialNumToRender={2}
-                maxToRenderPerBatch={3}
-                windowSize={5}
+                maxToRenderPerBatch={2}
+                windowSize={3}
             />
         </SafeAreaView>
     );
@@ -168,86 +203,93 @@ export const StoriesFeed = () => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#000" },
     center: { flex: 1, justifyContent: "center", alignItems: "center" },
-    loadingText: { color: "#a349a4", marginTop: 10, fontWeight: "bold", letterSpacing: 1 },
+    loadingText: { color: "#a349a4", marginTop: 10, fontWeight: "bold" },
     pageHeader: {
         paddingHorizontal: 20,
         paddingVertical: 15,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottomWidth: 1,
-        borderBottomColor: '#222'
     },
-    headerTitle: { color: "#FFF", fontSize: 28, fontWeight: "900" },
-    refreshIcon: { padding: 5 },
-    listPadding: { paddingBottom: 40 },
+    headerTitle: { color: "#FFF", fontSize: 32, fontWeight: "900", letterSpacing: -1 },
+    muteToggle: {
+        position: 'absolute',
+        bottom: 30,
+        right: 20,
+        backgroundColor: 'rgba(163, 73, 164, 0.8)', // Purple with transparency
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 999, // Ensure it's above everything
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.5,
+        shadowRadius: 4,
+    },
+    listPadding: { paddingBottom: 100 },
     card: {
-        backgroundColor: "#111",
-        marginHorizontal: 16,
-        marginTop: 20,
-        borderRadius: 15,
+        backgroundColor: "#0A0A0A",
+        marginHorizontal: 12,
+        marginTop: 16,
+        borderRadius: 20,
         overflow: "hidden",
         borderWidth: 1,
-        borderColor: "#333"
+        borderColor: "#1A1A1A"
     },
-    cardHeader: {
-        padding: 15,
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center"
-    },
-    headerLeft: { flex: 1 },
-    title: { color: "#FFF", fontSize: 18, fontWeight: "bold" },
+    cardHeader: { padding: 16, flexDirection: "row", justifyContent: "space-between" },
+    title: { color: "#FFF", fontSize: 18, fontWeight: "800" },
     typeBadge: {
-        backgroundColor: "#a349a433",
+        backgroundColor: "#a349a422",
         paddingHorizontal: 8,
         paddingVertical: 2,
-        borderRadius: 4,
-        marginTop: 4,
+        borderRadius: 6,
+        marginTop: 6,
         alignSelf: 'flex-start',
         borderWidth: 1,
         borderColor: '#a349a4'
     },
     typeText: { color: "#d67bff", fontSize: 10, fontWeight: "bold" },
-    stakeContainer: { alignItems: 'flex-end', marginLeft: 10 },
-    stakeLabel: { color: "#888", fontSize: 8, fontWeight: "bold" },
-    stakeValue: { color: "#FFD700", fontSize: 16, fontWeight: "bold" },
-    versusArena: { height: 180, flexDirection: "row", position: "relative", backgroundColor: '#050505' },
-    videoHalf: { flex: 1, overflow: 'hidden', backgroundColor: 'red' },
-    emptySide: { backgroundColor: '#0a0a0a' },
-    overlay: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: "flex-end",
-        alignItems: "center",
-        backgroundColor: 'rgba(0,0,0,0.1)',
-        paddingBottom: 10
-    },
-    sideLabel: { color: "#FFF", fontSize: 9, fontWeight: "bold", letterSpacing: 1, textShadowColor: 'black', textShadowRadius: 4 },
+    stakeValue: { color: "#FFD700", fontSize: 20, fontWeight: "900" },
+    stakeLabel: { color: "#888", fontSize: 8, fontWeight: "bold", textAlign: 'right' },
+
+    // ARENA LAYOUT
+    versusArena: { height: 380, flexDirection: "column" },
+    videoStack: { flex: 1, overflow: 'hidden', position: 'relative' },
+    emptySide: { backgroundColor: '#050505', justifyContent: 'center' },
+    waitingText: { color: '#333', fontSize: 9, fontWeight: 'bold', marginTop: 4 },
+
+    horizonLine: { height: 4, backgroundColor: '#1A1A1A', zIndex: 20, justifyContent: 'center' },
     vsBadge: {
         position: "absolute",
-        zIndex: 10,
-        left: '50%',
-        marginLeft: -18,
-        top: "50%",
-        marginTop: -18,
+        alignSelf: "center",
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: "#a349a4",
+        backgroundColor: "#000",
         justifyContent: "center",
         alignItems: "center",
-        borderWidth: 3,
-        borderColor: "#111"
+        borderWidth: 2,
+        borderColor: "#a349a4",
+        zIndex: 30
+    }, activeAudioLabel: {
+        backgroundColor: '#a349a4', // Purple pop when this side is "Talking"
+        borderColor: '#FFF',
+        borderWidth: 1,
+        flexDirection: 'row',
+        alignItems: 'center'
     },
     vsText: { color: "#FFF", fontWeight: "900", fontSize: 12 },
-    cardFooter: {
-        padding: 12,
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: 'center',
-        backgroundColor: "#161616"
-    },
-    dateText: { color: "#666", fontSize: 11 },
-    actionRow: { flexDirection: 'row', alignItems: 'center' },
-    watchText: { color: "#a349a4", fontSize: 12, fontWeight: "bold", marginRight: 4 }
+    miniMeter: { height: 4, width: '100%', backgroundColor: '#222' },
+    meterFill: { height: '100%' },
+
+    topLabelContainer: { position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    bottomLabelContainer: { position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    sideLabel: { color: "#FFF", fontSize: 9, fontWeight: "900" },
+
+    cardFooter: { padding: 16, flexDirection: "row", justifyContent: "space-between", backgroundColor: "#0F0F0F" },
+    dateText: { color: "#444", fontSize: 11, fontWeight: '600' },
+    watchText: { color: "#a349a4", fontSize: 13, fontWeight: "900" }
 });

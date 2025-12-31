@@ -95,10 +95,17 @@ function RootStack() {
         component={MyBottomTabs}
         options={{ headerShown: false }} // Keep it here if you want to hide in Home
       />
+      <StackNav.Screen
+        name="FullStoryScreen"
+        component={FullStoryScreen}
+        options={{
+          animation: 'slide_from_bottom', // Staff UX Tip: This makes it feel like an overlay
+          presentation: 'fullScreenModal'
+        }}
+      />
       <StackNav.Screen name="AddStory" component={AddStoryScreen} />
       <StackNav.Screen name="Details" component={DetailsScreen} />
       <StackNav.Screen name="ChallengeDetailsScreen" component={ChallengeDetailsScreen} />
-      <StackNav.Screen name="FullStoryScreen" component={FullStoryScreen} />
       <StackNav.Screen
         name="Info"
         component={InfoScreen}
