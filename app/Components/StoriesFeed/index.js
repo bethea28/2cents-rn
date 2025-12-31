@@ -21,20 +21,15 @@ const { width } = Dimensions.get('window');
  */
 const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
     const navigation = useNavigation();
-    const hasRebuttal = !!item.sideBVideoUrl;
-
-    // 'A' for Challenger, 'B' for Rebuttal
     const [audioFocus, setAutoFocus] = React.useState('A');
 
-    // Reset audio focus to Challenger when card becomes inactive to keep it clean
-    React.useEffect(() => {
-        if (!isActive) setAutoFocus('A');
-    }, [isActive]);
+    const handleNavigate = () => {
+        navigation.navigate("FullStoryScreen", { story: item });
+    };
 
     return (
         <View style={styles.card}>
-            {/* Header Area */}
-            <View style={styles.cardHeader}>
+            <Pressable onPress={handleNavigate} style={styles.cardHeader}>
                 <View style={styles.headerLeft}>
                     <Text style={styles.title}>{item.title}</Text>
                     <View style={styles.typeBadge}>
@@ -45,16 +40,10 @@ const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
                     <Text style={styles.stakeLabel}>STAKE</Text>
                     <Text style={styles.stakeValue}>{item.wager}</Text>
                 </View>
-            </View>
+            </Pressable>
 
-            {/* THE ARENA */}
             <View style={styles.versusArena}>
-
-                {/* SIDE A: CHALLENGER */}
-                <Pressable
-                    style={styles.videoStack}
-                    onPress={() => setAutoFocus('A')}
-                >
+                <Pressable onPress={handleNavigate} style={styles.videoStack}>
                     <Video
                         source={{ uri: item.sideAVideoUrl }}
                         style={StyleSheet.absoluteFill}
@@ -63,64 +52,53 @@ const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
                         isLooping
                         isMuted={isAppMuted || !isActive || audioFocus !== 'A'}
                     />
-                    <View style={[styles.topLabelContainer, audioFocus === 'A' && styles.activeAudioLabel]}>
-                        <Ionicons name={audioFocus === 'A' ? "volume-high" : "volume-mute"} size={10} color="white" style={{ marginRight: 4 }} />
+                    <Pressable
+                        style={[styles.topLabelContainer, audioFocus === 'A' && styles.activeAudioLabel]}
+                        onPress={() => setAutoFocus('A')}
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                    >
+                        {/* Increased size from 12 to 18 for a bolder look */}
+                        <Ionicons
+                            name={audioFocus === 'A' ? "volume-high" : "volume-mute"}
+                            size={18}
+                            color="white"
+                        />
                         <Text style={styles.sideLabel}>CHALLENGER</Text>
-                    </View>
+                    </Pressable>
                 </Pressable>
 
-                {/* THE HORIZON METER / VS BADGE */}
-                <Pressable
-                    style={styles.horizonLine}
-                    onPress={() => navigation.navigate("FullStoryScreen", { story: item })}
-                >
+                <View style={styles.horizonLine}>
                     <View style={styles.vsBadge}>
                         <Text style={styles.vsText}>VS</Text>
                     </View>
-                    <View style={styles.miniMeter}>
-                        <View style={[styles.meterFill, { width: '60%', backgroundColor: '#a349a4' }]} />
-                    </View>
-                </Pressable>
+                </View>
 
-                {/* SIDE B: REBUTTAL */}
-                <Pressable
-                    style={[styles.videoStack, !hasRebuttal && styles.emptySide]}
-                    onPress={() => hasRebuttal ? setAutoFocus('B') : null}
-                >
-                    {hasRebuttal ? (
-                        <Video
-                            source={{ uri: item.sideBVideoUrl }}
-                            style={StyleSheet.absoluteFill}
-                            resizeMode={ResizeMode.COVER}
-                            shouldPlay={isActive}
-                            isLooping
-                            isMuted={isAppMuted || !isActive || audioFocus !== 'B'}
-                        />
-                    ) : (
-                        <View style={styles.center}>
-                            <Ionicons name="hourglass-outline" size={20} color="#333" />
-                            <Text style={styles.waitingText}>WAITING FOR SMOKE...</Text>
-                        </View>
-                    )}
-                    <View style={[styles.bottomLabelContainer, audioFocus === 'B' && styles.activeAudioLabel]}>
-                        <Text style={styles.sideLabel}>{hasRebuttal ? "REBUTTAL" : "WAITING"}</Text>
-                        <Ionicons name={audioFocus === 'B' ? "volume-high" : "volume-mute"} size={10} color="white" style={{ marginLeft: 4 }} />
-                    </View>
+                <Pressable onPress={handleNavigate} style={styles.videoStack}>
+                    <Video
+                        source={{ uri: item.sideBVideoUrl || '' }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode={ResizeMode.COVER}
+                        shouldPlay={isActive}
+                        isLooping
+                        isMuted={isAppMuted || !isActive || audioFocus !== 'B'}
+                    />
+                    <Pressable
+                        style={[styles.bottomLabelContainer, audioFocus === 'B' && styles.activeAudioLabel]}
+                        onPress={() => setAutoFocus('B')}
+                    >
+                        <Text style={styles.sideLabel}>REBUTTAL</Text>
+                        <Ionicons name={audioFocus === 'B' ? "volume-high" : "volume-mute"} size={12} color="white" />
+                    </Pressable>
                 </Pressable>
             </View>
 
-            {/* Footer / Navigation Trigger */}
-            <Pressable
-                style={styles.cardFooter}
-                onPress={() => navigation.navigate("FullStoryScreen", { story: item })}
-            >
+            <Pressable style={styles.cardFooter} onPress={handleNavigate}>
                 <Text style={styles.dateText}>Settled {new Date(item.updatedAt).toLocaleDateString()}</Text>
                 <Text style={styles.watchText}>ENTER ARENA →</Text>
             </Pressable>
         </View>
     );
-});
-/**
+});/**
  * MAIN FEED COMPONENT
  */
 export const StoriesFeed = () => {
@@ -284,11 +262,32 @@ const styles = StyleSheet.create({
     vsText: { color: "#FFF", fontWeight: "900", fontSize: 12 },
     miniMeter: { height: 4, width: '100%', backgroundColor: '#222' },
     meterFill: { height: '100%' },
-
-    topLabelContainer: { position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    // For the Feed Card
+    topLabelContainer: {
+        position: 'absolute',
+        top: 12,
+        left: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.7)', // Slightly darker for better contrast
+        paddingVertical: 8,       // Thicker for easier tapping
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    // topLabelContainer: { position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
     bottomLabelContainer: { position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-    sideLabel: { color: "#FFF", fontSize: 9, fontWeight: "900" },
-
+    sideLabel: {
+        color: 'white',
+        fontSize: 11,
+        fontWeight: '900',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        // Add margin to push text away from the now-larger icon
+        marginLeft: 8,
+        marginRight: 4,
+    },
     cardFooter: { padding: 16, flexDirection: "row", justifyContent: "space-between", backgroundColor: "#0F0F0F" },
     dateText: { color: "#444", fontSize: 11, fontWeight: '600' },
     watchText: { color: "#a349a4", fontSize: 13, fontWeight: "900" }

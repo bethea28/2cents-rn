@@ -158,14 +158,20 @@ export const api = createApi({
       }),
       // providesTags: ['stories'],
     }),
+
+
     updateStoryStatus: build.mutation({
-      query: ({ id, ...patch }) => console.log('update story', patch) || ({
-        url: `stories/${id}`, // Targeting the specific beef by ID
-        method: "PATCH",      // PATCH is industry standard for partial updates
-        body: patch,          // Sending { sideBAcknowledged: true }
+      query: ({ id, ...patch }) => console.log('updating mutation', patch, id) || ({
+        url: `stories/${id}`,
+        method: "PATCH",
+        body: patch,
       }),
-      // This tells RTK Query the 'Stories' list is now old data, so go fetch the fresh version
-      invalidatesTags: ['stories'],
+      // 🛠 ENGINEER: Targeting the specific ID ensures the Details Screen 
+      // "hears" the update and flips the UI state immediately.
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'stories', id },
+        'stories' // We still invalidate the list so the Inbox stays fresh
+      ],
     }),
     handleStoryRebuttal: build.mutation({
       query: ({ id, formData }) => console.log('handel rebuttal story', formData) || ({
@@ -235,23 +241,39 @@ export const api = createApi({
         params: {},
       }),
     }),
-    getAllStories: build.query({
-      query: () => ({
-        url: "stories/getAllStories/",
-        params: {},
+
+    acceptChallenge: build.mutation({
+      // 1. Change the query to accept the 'id' directly
+      query: (id) => ({
+        url: `stories/acceptChallenge/${id}`,
+        method: "PATCH",
       }),
+
+      // 2. Fix the Tags name (make sure they match getStoryById exactly)
+      invalidatesTags: (result, error, id) => [
+        { type: 'stories', id: 'LIST' } // Refreshes the whole Challenges list
+      ],
     }),
+
+    getStoryById: build.query({
+      query: (id) => ({
+        url: `stories/getStoryById/${id}`,
+        method: 'GET',
+      }),
+      // 3. This tags the data so the mutation knows what to refresh
+      providesTags: (result, error, id) => [{ type: 'stories', id }],
+    }),
+
     getAllPendingStories: build.query({
-      query: (userId) => {
-        console.log("Fetching pending stories for User ID:", userId);
-        return {
-          url: `stories/${userId}/getAllPendingStories`, // Match your backend route path
-          method: "GET",
-        };
-      },
-      // Provides a tag so we can 'invalidate' this cache later 
-      // (e.g., after Dan records his rebuttal, the list should refresh)
-      providesTags: ['stories'],
+      query: (userId) => ({
+        url: `stories/${userId}/getAllPendingStories`,
+        method: "GET",
+      }),
+      // 🛠 ENGINEER: This ensures the list is linked to the user and the 'stories' type
+      providesTags: (result, error, userId) => [
+        { type: 'stories', id: 'LIST' },
+        { type: 'stories', userId }
+      ],
     }),
     // ... (rest of your endpoints)
     getAllCompleteStories: build.query({
@@ -272,6 +294,7 @@ export const api = createApi({
 });
 
 export const {
+  useGetStoryByIdQuery,
   useGetAllPendingStoriesQuery,
   useGetAllCompleteStoriesQuery,
   useGetBooksQuery,
@@ -279,12 +302,12 @@ export const {
   useGetDjangoQuery,
   useGetReviewsQuery,
   useAddReviewMutation,
-  useGetAllStoriesQuery,
   useAddCompanyMutation,
   useGoogleAuthMutation,
   useAuthLoginMutation,
   useAddFeedbackMutation,
   useCreateStoryMutation,
   useUpdateStoryStatusMutation,
-  useHandleStoryRebuttalMutation
+  useHandleStoryRebuttalMutation,
+  useAcceptChallengeMutation
 } = api;

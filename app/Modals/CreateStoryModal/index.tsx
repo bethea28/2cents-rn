@@ -102,26 +102,25 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
         const formData = new FormData();
 
         if (mode === 'rebuttal') {
-            // REBUTTAL FLOW
-            console.log('gza rebuttal', videoUri)
+            // --- REBUTTAL FLOW (Activates the 72h Arena) ---
             formData.append('video', {
                 uri: videoUri,
-                // uri: 'https://firebasestorage.googleapis.com/v0/b/cents-fe1c4.firebasestorage.app/o/videos%2Ftest-vid.mp4?alt=media&token=429f748c-c13e-4ebf-8878-3fb24cd4879a',
                 name: 'rebuttal.mp4',
                 type: 'video/mp4',
             });
-            formData.append('status', 'complete');
-            formData.append('sideBAcknowledged', 'true');
-            console.log('SENDING DATA FORM', formData._parts)
+
+            // Note: We removed 'status: complete' because the 
+            // backend now sets it to 'active-voting' automatically.
+
             try {
+                // This hits your new 'submitRebuttal' controller
                 await handleRebuttal({ id: storyId, formData }).unwrap();
                 setStep(3);
             } catch (err) {
-                console.log('ERROR TOO', err.data)
                 Alert.alert("Rebuttal Failed", err.data?.error || "Could not post response.");
             }
         } else {
-            // NEW CHALLENGE FLOW
+            // --- NEW CHALLENGE FLOW (Starts the 24h Clock) ---
             if (!title || !opponent) {
                 Alert.alert("Missing Info", "Please provide a title and an opponent.");
                 return;
@@ -134,7 +133,7 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
             });
             formData.append('title', title);
             formData.append('opponentHandle', opponent);
-            formData.append('stake', stake);
+            formData.append('wager', stake); // Changed from 'stake' to 'wager' to match service
             formData.append('storyType', 'call-out');
 
             try {

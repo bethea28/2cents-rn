@@ -1,90 +1,95 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Video } from 'expo-av';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useUpdateStoryStatusMutation } from "@/store/api/api";
-import CreateStoryModal from '../../Modals/CreateStoryModal'
+// 🛠 Added useGetStoryByIdQuery for live updates
+import { useUpdateStoryStatusMutation, useAcceptChallengeMutation, useGetStoryByIdQuery } from "@/store/api/api";
+import CreateStoryModal from '../../Modals/CreateStoryModal';
+import { VideoPlayerPlayback } from '../../Components/VideoPlayerPlayback';
 
 export const ChallengeDetailsScreen = ({ route, navigation }) => {
-    const { story } = route.params;
-    const [status, setStatus] = useState({});
-    const [updateStory, isLoading] = useUpdateStoryStatusMutation();
+    const { story: initialStory } = route.params;
+
+    // 🛠 ENGINEER: Fetch live data. 'liveStory' will update automatically when mutation finishes.
+    const { data: liveStory } = useGetStoryByIdQuery(initialStory.id);
+
+    // Fallback to initialStory if live data hasn't arrived yet
+    const story = liveStory || initialStory;
+
     const [isCameraVisible, setIsCameraVisible] = useState(false);
+
+    // Mutations
+    const [updateStory] = useUpdateStoryStatusMutation();
+    const [acceptChallenge, { isLoading: isAccepting }] = useAcceptChallengeMutation();
+
+    // 🛠 ENGINEER: This check is now "Watching" liveStory.status
+    const isAwaitingAcceptance = story.status === 'pending-acceptance';
+
+    const handleAccept = async () => {
+        try {
+            // Once this succeeds, RTK Query invalidates the cache and liveStory updates
+            await acceptChallenge(story.id).unwrap();
+            Alert.alert("It's ON!", "Challenge accepted. You have 24 hours to respond.");
+        } catch (err) {
+            Alert.alert("Error", "Could not accept challenge.");
+        }
+    };
+
     return (
         <View style={styles.container}>
-            {/* BACK BUTTON */}
-            <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-            >
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
                 <Ionicons name="chevron-back" size={30} color="white" />
             </TouchableOpacity>
 
-            {/* VIDEO SECTION */}
             <View style={styles.videoWrapper}>
-                <Video
-                    // source={{ uri: story.sideAVideoUrl }}
-                    source={{
-                        uri: 'https://firebasestorage.googleapis.com/v0/b/cents-fe1c4.firebasestorage.app/o/videos%2Ftest-vid.mp4?alt=media&token=429f748c-c13e-4ebf-8878-3fb24cd4879a'
-                    }}
+                <VideoPlayerPlayback
+                    videoSource={story.sideAVideoUrl}
                     style={styles.video}
-                    resizeMode="cover"
-
-                    // AUTOPLAY SETTINGS
-                    shouldPlay={true}          // Starts playing automatically
-                    isLooping={true}           // Restarts when finished
-                    isMuted={false}            // Set to true if you want it silent until they interact
-
-                    // CONTROLS & FEEDBACK
-                    useNativeControls={true}
-                    onPlaybackStatusUpdate={status => setStatus(() => status)}
-
-                    // CRITICAL FOR IOS SIMULATOR AUTOPLAY
-                    playsInline={true}
-                    onLoad={async () => {
-                        // setIsLoading(false);
-                        if (!story.sideBAcknowledged) {
-                            // We pass one object containing the ID and the specific fields to update
-                            await updateStory({
-                                mode: 'acknowledge',
+                    isMuted={false}
+                    showControls={true}
+                    onLoad={() => {
+                        // Only trigger if we haven't recorded a view time yet
+                        if (!story.sideBViewedAt) {
+                            console.log('upating story receipt gzarza', story)
+                            updateStory({
                                 id: story.id,
                                 sideBAcknowledged: true,
-                                sideBViewedAt: new Date()
+                                sideBViewedAt: new Date().toISOString()
                             });
+                            console.log("DB Update Sent: User is watching the beef.");
                         }
                     }}
                 />
-                {!status.isLoaded && (
-                    <ActivityIndicator size="large" color="#FF3B30" style={styles.loader} />
-                )}
             </View>
 
-            {/* BEEF DETAILS */}
             <View style={styles.content}>
-                <Text style={styles.challengerLabel}>
-                    CHALLENGE FROM @{story.SideA?.username || 'User'}
-                </Text>
+                <Text style={styles.challengerLabel}>CHALLENGE FROM @{story.SideA?.username}</Text>
                 <Text style={styles.title}>{story.title}</Text>
-
                 <View style={styles.wagerBadge}>
                     <Ionicons name="flash" size={16} color="#FFD700" />
                     <Text style={styles.wagerText}>STAKE: {story.wager}</Text>
                 </View>
-
-                <Text style={styles.description}>
-                    {story.sideAContent || "No additional details provided."}
-                </Text>
+                <Text style={styles.description}>{story.sideAContent || "No additional details provided."}</Text>
             </View>
 
-            {/* ACTION FOOTER */}
             <View style={styles.footer}>
-                <TouchableOpacity
-                    style={styles.rebuttalButton}
-                    onPress={() => setIsCameraVisible(true)} // Just open the modal
-                >
-                    <Text style={styles.buttonText}>RECORD REBUTTAL</Text>
-                </TouchableOpacity>
+                {isAwaitingAcceptance ? (
+                    <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: '#5856D6' }]}
+                        onPress={handleAccept}
+                        disabled={isAccepting}
+                    >
+                        {isAccepting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>ACCEPT CHALLENGE</Text>}
+                    </TouchableOpacity>
+                ) : (
+                    <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: '#FF3B30' }]}
+                        onPress={() => setIsCameraVisible(true)}
+                    >
+                        <Text style={styles.buttonText}>RECORD REBUTTAL</Text>
+                    </TouchableOpacity>
+                )}
             </View>
+
             <CreateStoryModal
                 visible={isCameraVisible}
                 onClose={() => setIsCameraVisible(false)}
@@ -94,12 +99,13 @@ export const ChallengeDetailsScreen = ({ route, navigation }) => {
         </View>
     );
 };
+// ... (Styles remain the same)
+
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
     backButton: { position: 'absolute', top: 50, left: 20, zIndex: 10 },
-    videoWrapper: { width: '100%', height: '55%', justifyContent: 'center' },
+    videoWrapper: { width: '100%', height: '55%', backgroundColor: '#111' }, // Added BG color for loading
     video: { flex: 1 },
-    loader: { position: 'absolute', alignSelf: 'center' },
     content: { padding: 20 },
     challengerLabel: { color: '#FF3B30', fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
     title: { color: '#fff', fontSize: 28, fontWeight: '900', marginTop: 5 },
@@ -116,16 +122,16 @@ const styles = StyleSheet.create({
     wagerText: { color: '#FFD700', fontWeight: 'bold', marginLeft: 5 },
     description: { color: '#aaa', marginTop: 15, fontSize: 16, lineHeight: 22 },
     footer: { position: 'absolute', bottom: 40, width: '100%', paddingHorizontal: 20 },
-    rebuttalButton: {
-        backgroundColor: '#FF3B30',
+    actionButton: {
         height: 60,
         borderRadius: 30,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#FF3B30',
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
-        shadowRadius: 10
+        shadowRadius: 10,
+        elevation: 5
     },
     buttonText: { color: '#fff', fontSize: 18, fontWeight: '800' }
 });
