@@ -243,15 +243,16 @@ export const api = createApi({
     }),
 
     acceptChallenge: build.mutation({
-      // 1. Change the query to accept the 'id' directly
       query: (id) => ({
         url: `stories/acceptChallenge/${id}`,
         method: "PATCH",
       }),
 
-      // 2. Fix the Tags name (make sure they match getStoryById exactly)
+      // 🛠 ENGINEER: You need BOTH tags to update the current screen AND the list
       invalidatesTags: (result, error, id) => [
-        { type: 'stories', id: 'LIST' } // Refreshes the whole Challenges list
+        { type: 'stories', id },       // 👈 THIS flips the button on your current screen
+        { type: 'stories', id: 'LIST' }, // This refreshes the whole Challenges list
+        'stories'                      // Inclusion of the string tag for safety
       ],
     }),
 
