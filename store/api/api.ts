@@ -183,18 +183,17 @@ export const api = createApi({
       ],
     }),
 
-    postComment: build.mutation<any, { storyId: number; content: string; parentId?: number }>({
+    // Update your mutation signature to include 'side'
+    postComment: build.mutation<any, { storyId: number; content: string; side: string; parentId?: number }>({
       query: ({ storyId, ...body }) => ({
         url: `comments/${storyId}`,
         method: "POST",
-        body,
+        body, // This now sends content, side, and optionally parentId
       }),
-      // 🛠 ENGINEER: After posting, we invalidate the comments for THIS story
       invalidatesTags: (result, error, { storyId }) => [
         { type: 'comments', id: storyId }
       ],
     }),
-
     updateStoryStatus: build.mutation({
       query: ({ id, ...patch }) => console.log('updating mutation', patch, id) || ({
         url: `stories/${id}`,
@@ -334,6 +333,7 @@ export const {
   useGetAllPendingStoriesQuery,
   useGetAllCompleteStoriesQuery,
   useGetBooksQuery,
+  useGetCommentsQuery,
   useGetWeatherQuery,
   useGetDjangoQuery,
   useGetReviewsQuery,
@@ -346,5 +346,6 @@ export const {
   useUpdateStoryStatusMutation,
   useHandleStoryRebuttalMutation,
   useAcceptChallengeMutation,
-  useCastVoteMutation
+  useCastVoteMutation,
+  usePostCommentMutation
 } = api;

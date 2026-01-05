@@ -37,6 +37,7 @@ import { FullStoryScreen } from "./Screens/FullStoryScreen";
 import { PendingStoriesScreen } from "./Screens/PendingStoriesScreen";
 import { ChallengeDetailsScreen } from "./Screens/ChallengeDetailsScreen";
 import { ChallengesScreen } from "./Screens/ChallengesScreen";
+// import { GestureHandlerRootView } from 'react-native-gesture-handler';
 // WebView Component
 
 const BottomTab = createBottomTabNavigator();
