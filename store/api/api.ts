@@ -20,7 +20,8 @@ import { authTokenStore } from "@/app/customHooks";
 const createMyBaseQuery = () => {
   return async (args, api, extraOptions) => {
     const rawBaseQuery = fetchBaseQuery({
-      baseUrl: "http://192.168.1.153:3000/",
+      baseUrl: "http://10.99.69.39:3000/",    // cuperaco cafe  
+      // baseUrl: "http://192.168.1.153:3000/",
       // baseUrl: "http://172.20.10.4:3000/", //hotspot iphone
       prepareHeaders: async (headers, { getState }) => {
         const accessToken = await authTokenStore.getAccessToken();
