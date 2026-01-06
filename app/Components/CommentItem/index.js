@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native'; // 🛠 Added Pressable
 
-export const CommentItem = ({ comment, isReply = false }) => {
-    // Logic: Map Team A to Purple, Team B to Cyan, Neutral to Grey
+export const CommentItem = ({ comment, isReply = false, onReply }) => { // 🛠 Added onReply prop
     const teamColor =
         comment.side === 'A' ? '#a349a4' :
             comment.side === 'B' ? '#00D1FF' : '#444';
@@ -24,12 +23,15 @@ export const CommentItem = ({ comment, isReply = false }) => {
 
             <View style={styles.footer}>
                 <Text style={styles.footerText}>{comment.likesCount || 0} 🔥</Text>
-                <Text style={styles.footerAction}>REPLY</Text>
+
+                {/* 🛠 WRAP THE REPLY TEXT IN A PRESSABLE */}
+                <Pressable onPress={onReply}>
+                    <Text style={styles.footerAction}>REPLY</Text>
+                </Pressable>
             </View>
         </View>
     );
 };
-
 const styles = StyleSheet.create({
     container: {
         backgroundColor: '#1A1A1A',
