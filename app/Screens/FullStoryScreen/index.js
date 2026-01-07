@@ -35,39 +35,61 @@ export const FullStoryScreen = ({ route, navigation }) => {
     const toastAnim = useRef(new Animated.Value(0)).current;
 
     // --- STATE ---
-    const commentsList = commentsData?.data || [];
+    // 🛠 ENGINEER: Restored the missing commentText state that caused the crash
     const [commentText, setCommentText] = useState('');
     const [mutedSide, setMutedSide] = useState('B');
     const [userSide, setUserSide] = useState(story.userSide || null);
     const [sheetIndex, setSheetIndex] = useState(0);
-    const [replyTarget, setReplyTarget] = useState(null); // Format: { id: 1, username: 'user' }
+    const [replyTarget, setReplyTarget] = useState(null);
     const [voteMessage, setVoteMessage] = useState(null);
 
     const snapPoints = useMemo(() => ['1%', '65%', '95%'], []);
 
+    // --- DATA NESTING LOGIC ---
+    const commentsList = useMemo(() => {
+        const rawComments = commentsData?.data || [];
+        const map = {};
+
+        // 1. Initialize map
+        rawComments.forEach(c => {
+            map[c.id] = { ...c, replies: [] };
+        });
+
+        const nested = [];
+        // 2. Build Tree
+        rawComments.forEach(c => {
+            if (c.parentId && map[c.parentId]) {
+                map[c.parentId].replies.push(map[c.id]);
+            } else if (!c.parentId) {
+                nested.push(map[c.id]);
+            }
+        });
+
+        return nested;
+    }, [commentsData]);
+
     // --- HANDLERS ---
 
-    // 🛠 Post Comment or Reply
     const handleSend = async () => {
         if (!commentText.trim() || isPosting) return;
+
         try {
             await postComment({
                 storyId: story.id,
                 content: commentText.trim(),
                 side: userSide || 'Neutral',
-                parentId: replyTarget?.id || null
+                // 🛠️ Use rootId to keep the thread flat
+                parentId: replyTarget?.rootId || replyTarget?.id || null
             }).unwrap();
 
             setCommentText('');
             setReplyTarget(null);
             Keyboard.dismiss();
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (error) {
-            Alert.alert("Error", "Could not post comment.");
+            Alert.alert("Error", "Could not post.");
         }
     };
 
-    // 🛠 Toggle Heat (Likes)
     const handleLike = async (commentId) => {
         try {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -75,14 +97,6 @@ export const FullStoryScreen = ({ route, navigation }) => {
         } catch (error) {
             console.error("Like Error:", error);
         }
-    };
-
-    const showToast = (msg) => {
-        setVoteMessage(msg);
-        Animated.timing(toastAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
-        setTimeout(() => {
-            Animated.timing(toastAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setVoteMessage(null));
-        }, 2000);
     };
 
     return (
@@ -94,7 +108,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
                 </Animated.View>
             )}
 
-            {/* ARENA (Video Section) */}
+            {/* ARENA */}
             <View style={styles.arenaContainer}>
                 <Pressable style={styles.videoSegment} onPress={() => setMutedSide(mutedSide === 'A' ? 'B' : 'A')}>
                     <Video source={{ uri: story.sideAVideoUrl }} style={StyleSheet.absoluteFill} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={mutedSide === 'A'} />
@@ -104,7 +118,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
                 </Pressable>
             </View>
 
-            {/* INTERACTION LAYER (Closed State) */}
+            {/* INTERACTION LAYER */}
             <View style={styles.interactionLayer}>
                 <Pressable style={styles.commentPreview} onPress={() => bottomSheetRef.current?.snapToIndex(1)}>
                     <Ionicons name="chatbubble-ellipses-outline" size={20} color="#666" />
@@ -112,7 +126,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
                 </Pressable>
             </View>
 
-            {/* COMMENTS BOTTOM SHEET */}
+            {/* COMMENTS SHEET */}
             <BottomSheet
                 ref={bottomSheetRef}
                 index={0}
@@ -128,20 +142,52 @@ export const FullStoryScreen = ({ route, navigation }) => {
                         data={commentsList}
                         keyExtractor={(item) => item.id.toString()}
                         renderItem={({ item }) => (
-                            <CommentItem
-                                comment={item}
-                                isReply={item.parentId !== null}
-                                onLike={() => handleLike(item.id)}
-                                onReply={() => {
-                                    const targetName = item.author?.username || 'User';
-                                    setReplyTarget({ id: item.id, username: targetName });
+                            <View>
+                                {/* THE PARENT COMMENT */}
+                                <CommentItem
+                                    comment={item}
+                                    isReply={false}
+                                    onLike={() => handleLike(item.id)}
+                                    onReply={() => {
+                                        // 🛠️ FIX: Use 'item' here, not 'reply'
+                                        const targetName = item.author?.username || 'User';
 
-                                    if (inputRef.current) {
-                                        inputRef.current.focus();
-                                    }
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                }}
-                            />
+                                        setReplyTarget({
+                                            id: item.id,
+                                            username: targetName,
+                                            rootId: null // It's already the root
+                                        });
+
+                                        inputRef.current?.focus();
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    }}
+                                />
+
+                                {/* THE REPLIES LOOP */}
+                                {item.replies && item.replies.map((reply) => (
+                                    <CommentItem
+                                        key={reply.id}
+                                        comment={reply}
+                                        isReply={true}
+                                        onLike={() => handleLike(reply.id)}
+                                        onReply={() => {
+                                            // 🛠️ Target the specific person you are replying to
+                                            const targetName = reply.author?.username || 'User';
+
+                                            setReplyTarget({
+                                                id: reply.id,
+                                                username: targetName,
+                                                // 🛠️ Force the parentId to be the TOP parent (item.id)
+                                                // This ensures the thread stays 1-level deep
+                                                rootId: item.id
+                                            });
+
+                                            inputRef.current?.focus();
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        }}
+                                    />
+                                ))}
+                            </View>
                         )}
                         contentContainerStyle={{ paddingBottom: 150 }}
                         ListEmptyComponent={isCommentsLoading ? <ActivityIndicator color="#a349a4" /> : <Text style={styles.emptyText}>No heat yet.</Text>}
@@ -149,25 +195,21 @@ export const FullStoryScreen = ({ route, navigation }) => {
                 </View>
             </BottomSheet>
 
-            {/* FLOATING INPUT LAYER */}
+            {/* FLOATING INPUT */}
             {sheetIndex > 0 && (
                 <KeyboardAvoidingView
                     behavior={Platform.OS === "ios" ? "padding" : "height"}
                     style={styles.globalInputWrapper}
                     keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
                 >
-                    {/* DESIGNER'S REPLY BAR */}
                     {replyTarget && (
                         <View style={styles.replyBar}>
-                            <Text style={styles.replyText}>
-                                Replying to <Text style={{ fontWeight: 'bold' }}>@{replyTarget.username}</Text>
-                            </Text>
+                            <Text style={styles.replyText}>Replying to <Text style={{ fontWeight: 'bold' }}>@{replyTarget.username}</Text></Text>
                             <Pressable onPress={() => setReplyTarget(null)}>
                                 <Ionicons name="close-circle" size={18} color="#a349a4" />
                             </Pressable>
                         </View>
                     )}
-
                     <View style={styles.inputContainer}>
                         <TextInput
                             ref={inputRef}
@@ -178,17 +220,12 @@ export const FullStoryScreen = ({ route, navigation }) => {
                             onChangeText={setCommentText}
                         />
                         <Pressable style={styles.sendBtn} onPress={handleSend}>
-                            <Ionicons
-                                name="send"
-                                size={24}
-                                color={commentText.trim() ? "#a349a4" : "#444"}
-                            />
+                            <Ionicons name="send" size={24} color={commentText.trim() ? "#a349a4" : "#444"} />
                         </Pressable>
                     </View>
                 </KeyboardAvoidingView>
             )}
 
-            {/* OVERLAY ACTIONS */}
             <SafeAreaView style={styles.headerOverlay} pointerEvents="box-none">
                 <Pressable style={styles.closeButton} onPress={() => navigation.goBack()}>
                     <Ionicons name="close" size={28} color="white" />
