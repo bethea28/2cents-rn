@@ -8,34 +8,46 @@ import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
+
+// Custom Components & API
 import { CommentItem } from '../../Components/CommentItem';
-import { useCastVoteMutation, usePostCommentMutation, useGetCommentsQuery } from "@/store/api/api";
+import {
+    useCastVoteMutation,
+    usePostCommentMutation,
+    useGetCommentsQuery,
+    useToggleCommentLikeMutation
+} from "@/store/api/api";
 
 const { height, width } = Dimensions.get('window');
 
 export const FullStoryScreen = ({ route, navigation }) => {
     const { story } = route.params;
-    // --- STATE ---
+
+    // --- API MUTATIONS & QUERIES ---
     const [castVote] = useCastVoteMutation();
     const [postComment, { isLoading: isPosting }] = usePostCommentMutation();
+    const [toggleCommentLike] = useToggleCommentLikeMutation();
     const { data: commentsData, isLoading: isCommentsLoading } = useGetCommentsQuery({ storyId: story.id });
-    const inputRef = useRef(null); // 🛠 This fixes the "doesn't exist" error
 
+    // --- REFS ---
+    const inputRef = useRef(null);
+    const bottomSheetRef = useRef(null);
+    const toastAnim = useRef(new Animated.Value(0)).current;
+
+    // --- STATE ---
     const commentsList = commentsData?.data || [];
     const [commentText, setCommentText] = useState('');
     const [mutedSide, setMutedSide] = useState('B');
     const [userSide, setUserSide] = useState(story.userSide || null);
     const [sheetIndex, setSheetIndex] = useState(0);
-
-    // 🛠 REPLIES STATE
-    const [replyTarget, setReplyTarget] = useState(null); // { id: 1, username: 'johndoe' }
-
+    const [replyTarget, setReplyTarget] = useState(null); // Format: { id: 1, username: 'user' }
     const [voteMessage, setVoteMessage] = useState(null);
-    const toastAnim = useRef(new Animated.Value(0)).current;
-    const bottomSheetRef = useRef(null);
+
     const snapPoints = useMemo(() => ['1%', '65%', '95%'], []);
 
-    // --- ACTIONS ---
+    // --- HANDLERS ---
+
+    // 🛠 Post Comment or Reply
     const handleSend = async () => {
         if (!commentText.trim() || isPosting) return;
         try {
@@ -43,15 +55,25 @@ export const FullStoryScreen = ({ route, navigation }) => {
                 storyId: story.id,
                 content: commentText.trim(),
                 side: userSide || 'Neutral',
-                parentId: replyTarget?.id || null // 🛠 Send parentId if replying
+                parentId: replyTarget?.id || null
             }).unwrap();
 
             setCommentText('');
-            setReplyTarget(null); // Reset reply mode
+            setReplyTarget(null);
             Keyboard.dismiss();
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (error) {
-            Alert.alert("Error", "Could not post.");
+            Alert.alert("Error", "Could not post comment.");
+        }
+    };
+
+    // 🛠 Toggle Heat (Likes)
+    const handleLike = async (commentId) => {
+        try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            await toggleCommentLike({ commentId }).unwrap();
+        } catch (error) {
+            console.error("Like Error:", error);
         }
     };
 
@@ -72,7 +94,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
                 </Animated.View>
             )}
 
-            {/* ARENA */}
+            {/* ARENA (Video Section) */}
             <View style={styles.arenaContainer}>
                 <Pressable style={styles.videoSegment} onPress={() => setMutedSide(mutedSide === 'A' ? 'B' : 'A')}>
                     <Video source={{ uri: story.sideAVideoUrl }} style={StyleSheet.absoluteFill} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={mutedSide === 'A'} />
@@ -82,7 +104,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
                 </Pressable>
             </View>
 
-            {/* INTERACTION LAYER */}
+            {/* INTERACTION LAYER (Closed State) */}
             <View style={styles.interactionLayer}>
                 <Pressable style={styles.commentPreview} onPress={() => bottomSheetRef.current?.snapToIndex(1)}>
                     <Ionicons name="chatbubble-ellipses-outline" size={20} color="#666" />
@@ -90,7 +112,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
                 </Pressable>
             </View>
 
-            {/* BOTTOM SHEET */}
+            {/* COMMENTS BOTTOM SHEET */}
             <BottomSheet
                 ref={bottomSheetRef}
                 index={0}
@@ -105,25 +127,18 @@ export const FullStoryScreen = ({ route, navigation }) => {
                     <BottomSheetFlatList
                         data={commentsList}
                         keyExtractor={(item) => item.id.toString()}
-                        // 🛠 PASS ONREPLY TO ITEM
                         renderItem={({ item }) => (
                             <CommentItem
                                 comment={item}
                                 isReply={item.parentId !== null}
+                                onLike={() => handleLike(item.id)}
                                 onReply={() => {
-                                    // 🛠 Path fix: Use item.author?.username to match your CommentItem
                                     const targetName = item.author?.username || 'User';
+                                    setReplyTarget({ id: item.id, username: targetName });
 
-                                    setReplyTarget({
-                                        id: item.id,
-                                        username: targetName
-                                    });
-
-                                    // 🛠 Safety check: only call focus if the ref is connected
                                     if (inputRef.current) {
                                         inputRef.current.focus();
                                     }
-
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                 }}
                             />
@@ -134,17 +149,19 @@ export const FullStoryScreen = ({ route, navigation }) => {
                 </View>
             </BottomSheet>
 
-            {/* 🛠 PERSISTENT INPUT WITH REPLY BAR */}
+            {/* FLOATING INPUT LAYER */}
             {sheetIndex > 0 && (
                 <KeyboardAvoidingView
                     behavior={Platform.OS === "ios" ? "padding" : "height"}
                     style={styles.globalInputWrapper}
-                    keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0} // Adjust this number as needed
+                    keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
                 >
-                    {/* THE DESIGNER'S REPLY BAR */}
+                    {/* DESIGNER'S REPLY BAR */}
                     {replyTarget && (
                         <View style={styles.replyBar}>
-                            <Text style={styles.replyText}>Replying to <Text style={{ fontWeight: 'bold' }}>@{replyTarget.username}</Text></Text>
+                            <Text style={styles.replyText}>
+                                Replying to <Text style={{ fontWeight: 'bold' }}>@{replyTarget.username}</Text>
+                            </Text>
                             <Pressable onPress={() => setReplyTarget(null)}>
                                 <Ionicons name="close-circle" size={18} color="#a349a4" />
                             </Pressable>
@@ -153,7 +170,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
 
                     <View style={styles.inputContainer}>
                         <TextInput
-                            ref={inputRef} // 🛠 This connects the logic to the physical box
+                            ref={inputRef}
                             style={styles.input}
                             placeholder={replyTarget ? `Reply to @${replyTarget.username}...` : "Talk your shit..."}
                             placeholderTextColor="#666"
@@ -161,12 +178,17 @@ export const FullStoryScreen = ({ route, navigation }) => {
                             onChangeText={setCommentText}
                         />
                         <Pressable style={styles.sendBtn} onPress={handleSend}>
-                            <Ionicons name="send" size={24} color={commentText.trim() ? "#a349a4" : "#444"} />
+                            <Ionicons
+                                name="send"
+                                size={24}
+                                color={commentText.trim() ? "#a349a4" : "#444"}
+                            />
                         </Pressable>
                     </View>
                 </KeyboardAvoidingView>
             )}
 
+            {/* OVERLAY ACTIONS */}
             <SafeAreaView style={styles.headerOverlay} pointerEvents="box-none">
                 <Pressable style={styles.closeButton} onPress={() => navigation.goBack()}>
                     <Ionicons name="close" size={28} color="white" />
@@ -184,15 +206,12 @@ const styles = StyleSheet.create({
     commentPreview: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#161616', padding: 15, borderRadius: 12 },
     commentPlaceholder: { color: '#666', fontSize: 14, marginLeft: 10 },
     globalInputWrapper: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 3000 },
-
-    // 🎨 DESIGNER'S REPLY BAR STYLE
     replyBar: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
         backgroundColor: '#1A1A1A', paddingHorizontal: 20, paddingVertical: 8,
         borderTopLeftRadius: 15, borderTopRightRadius: 15, borderBottomWidth: 1, borderBottomColor: '#333'
     },
     replyText: { color: '#888', fontSize: 12 },
-
     inputContainer: {
         flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15,
         paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 35 : 15,
@@ -205,5 +224,6 @@ const styles = StyleSheet.create({
     headerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 4000 },
     closeButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', marginLeft: 20, marginTop: Platform.OS === 'android' ? 40 : 10 },
     toastContainer: { position: 'absolute', top: height * 0.45, alignSelf: 'center', backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25, zIndex: 5000 },
-    toastText: { color: '#000', fontWeight: '900' }
+    toastText: { color: '#000', fontWeight: '900' },
+    emptyText: { color: '#444', textAlign: 'center', marginTop: 50, fontWeight: '700' }
 });

@@ -178,12 +178,21 @@ export const api = createApi({
 
     getComments: build.query<any, { storyId: number; page?: number }>({
       query: ({ storyId, page = 1 }) => `comments/${storyId}?page=${page}`,
-      // 🛠 ENGINEER: This tags the result set so we can refresh it when a new comment is posted
       providesTags: (result, error, { storyId }) => [
-        { type: 'comments', id: storyId }
+        { type: 'comments', id: 'LIST' }, // 🛠 This allows us to refresh ALL comment lists
+        { type: 'comments', id: storyId } // 🛠 This allows us to refresh this SPECIFIC story's comments
       ],
     }),
+    // Inside your api.js (Redux Toolkit Query)
 
+    toggleCommentLike: build.mutation<any, { commentId: number }>({
+      query: ({ commentId }) => ({
+        url: `likes/like/${commentId}`,
+        method: 'POST',
+      }),
+      // 🛠 ENGINEER: This now matches the 'LIST' tag in getComments
+      invalidatesTags: [{ type: 'comments', id: 'LIST' }],
+    }),
     // Update your mutation signature to include 'side'
     postComment: build.mutation<any, { storyId: number; content: string; side: string; parentId?: number }>({
       query: ({ storyId, ...body }) => ({
@@ -348,5 +357,6 @@ export const {
   useHandleStoryRebuttalMutation,
   useAcceptChallengeMutation,
   useCastVoteMutation,
-  usePostCommentMutation
+  usePostCommentMutation,
+  useToggleCommentLikeMutation
 } = api;
