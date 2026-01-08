@@ -1,231 +1,131 @@
-import { Pressable, Text, View, Alert, Button } from "react-native";
-import React from "react";
-import { useDispatch } from "react-redux";
-import { Provider } from "react-redux";
+import React, { useEffect, useState } from "react";
+import { View, StyleSheet, Text, Pressable } from "react-native";
+import { Provider, useDispatch, useSelector } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
-import { store, persistor } from "../store/store";
-import { authorizeUser } from "../store/userReducer";
-import { testReducer } from "@/store/testReducer";
-import {
-  useGetWeatherQuery,
-  useGetDjangoQuery,
-  useGetBooksQuery,
-} from "@/store/api/api";
-import { useGetPokemonByNameQuery } from "@/store/pokemonTestApi/pokemonTestApi";
-import { WebView } from "react-native-webview";
-import Constants from "expo-constants";
-import { StyleSheet } from "react-native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { increment, setUserData } from "@/store/globalState/globalState";
-import { ProfileScreen } from "./Screens/ProfileScreen";
-import { HomeScreen } from "./Screens/HomeScreen";
-import { AddStoryScreen } from "./Screens/AddStoryScreen";
-import { DetailsScreen } from "./Screens/DetailsScreen";
-import { InfoScreen } from "./Screens/InfoScreen";
-import { AddReviewScreen } from "./Screens/AddReviewScreen";
-import { BusinessHours } from "./Screens/BusinessHours";
-import { SocialLoginScreen } from "./Screens/SocialLoginScreen";
-import { useSelector } from "react-redux";
-// import { useGoogleAuthMutation } from "@/store/api/api";
-import { useNavigation } from "@react-navigation/native";
-import { NotifierWrapper } from "react-native-notifier";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { NotifierWrapper } from "react-native-notifier";
+import Constants from "expo-constants";
+
+// Store Imports
+import { store, persistor } from "../store/store";
+import { increment } from "@/store/globalState/globalState";
+
+// Screen Imports
+import { RegistrationScreen } from "./Screens/RegistrationScreen";
+import { LoginScreen } from './Screens/LoginScreen';
+import { HomeScreen } from "./Screens/HomeScreen";
+import { ProfileScreen } from "./Screens/ProfileScreen";
+import { ChallengesScreen } from "./Screens/ChallengesScreen";
 import { UserFeedbackScreen } from "./Screens/UserFeedbackScreen";
 import { FullStoryScreen } from "./Screens/FullStoryScreen";
-import { PendingStoriesScreen } from "./Screens/PendingStoriesScreen";
+import { AddStoryScreen } from "./Screens/AddStoryScreen";
+import { DetailsScreen } from "./Screens/DetailsScreen";
 import { ChallengeDetailsScreen } from "./Screens/ChallengeDetailsScreen";
-import { ChallengesScreen } from "./Screens/ChallengesScreen";
-// import { GestureHandlerRootView } from 'react-native-gesture-handler';
-// WebView Component
+import { InfoScreen } from "./Screens/InfoScreen";
+import { BusinessHours } from "./Screens/BusinessHours";
+import { AddReviewScreen } from "./Screens/AddReviewScreen";
 
 const BottomTab = createBottomTabNavigator();
 const StackNav = createNativeStackNavigator();
 
+// --- TABS (The "Arena" Inner Sanctum) ---
 function MyBottomTabs() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   return (
-    <BottomTab.Navigator>
+    <BottomTab.Navigator screenOptions={{
+      tabBarStyle: { backgroundColor: '#000' },
+      headerStyle: { backgroundColor: '#000' },
+      headerTintColor: '#fff'
+    }}>
       <BottomTab.Screen
-        // options={{ headerShown: false }}
+        name="Feed"
+        component={HomeScreen}
         options={{
           headerRight: () => (
             <Pressable
               onPress={() => navigation.navigate("AddStory")}
-              style={[
-                {
-                  padding: 20,
-                  marginRight: 10,
-                  borderRadius: 100,
-                  backgroundColor: "#a349a4",
-                },
-              ]}
+              style={{
+                paddingVertical: 8,
+                paddingHorizontal: 15,
+                marginRight: 10,
+                borderRadius: 20,
+                backgroundColor: "#a349a4",
+              }}
             >
-              <Text style={{ color: "white" }}>Add Story</Text>
+              <Text style={{ color: "white", fontWeight: 'bold' }}>Add Story</Text>
             </Pressable>
           ),
         }}
-        name="Feed"
-        component={HomeScreen}
       />
-      <BottomTab.Screen
-        // options={{ headerShown: false }}
-        name="Challenges"
-        component={ChallengesScreen}
-      />
-      <BottomTab.Screen
-        // options={{ headerShown: false }}
-        name="Profile"
-        component={ProfileScreen}
-      />
-      <BottomTab.Screen
-        // options={{ headerShown: false }}
-        name="Feedback"
-        component={UserFeedbackScreen}
-      />
+      <BottomTab.Screen name="Challenges" component={ChallengesScreen} />
+      <BottomTab.Screen name="Profile" component={ProfileScreen} />
+      <BottomTab.Screen name="Feedback" component={UserFeedbackScreen} />
     </BottomTab.Navigator>
   );
 }
 
+// --- MAIN CONTENT STACK ---
 function RootStack() {
   return (
     <StackNav.Navigator>
       <StackNav.Screen
-        name="Home"
+        name="HomeTab"
         component={MyBottomTabs}
-        options={{ headerShown: false }} // Keep it here if you want to hide in Home
+        options={{ headerShown: false }}
       />
       <StackNav.Screen
         name="FullStoryScreen"
         component={FullStoryScreen}
-        options={{
-          animation: 'slide_from_bottom', // Staff UX Tip: This makes it feel like an overlay
-          presentation: 'fullScreenModal'
-        }}
+        options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
       />
       <StackNav.Screen name="AddStory" component={AddStoryScreen} />
       <StackNav.Screen name="Details" component={DetailsScreen} />
       <StackNav.Screen name="ChallengeDetailsScreen" component={ChallengeDetailsScreen} />
-      <StackNav.Screen
-        name="Info"
-        component={InfoScreen}
-      // Remove options={{ headerShown: false }} from here
-      />
-      <StackNav.Screen
-        name="BusinessHours"
-        component={BusinessHours}
-      // Remove options={{ headerShown: false }} from here
-      />
-      <StackNav.Screen
-        options={{ headerShown: false }}
-        name="AddReviews"
-        component={AddReviewScreen}
-      />
+      <StackNav.Screen name="Info" component={InfoScreen} />
+      <StackNav.Screen name="BusinessHours" component={BusinessHours} />
+      <StackNav.Screen name="AddReviews" component={AddReviewScreen} />
     </StackNav.Navigator>
   );
 }
 
-function WebViewComp({
-  handleWebViewNavigationStateChange,
-  handleViewMessage,
-}) {
-  return (
-    <WebView
-      style={styles.container}
-      // source={{ uri: "http://127.0.0.1:8000/" }} // Replace with your Django server URL
-      onNavigationStateChange={handleWebViewNavigationStateChange}
-      onMessage={handleViewMessage}
-    />
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    marginTop: Constants.statusBarHeight,
-  },
-});
-
-// Main App Component
+// --- MAIN APP COMPONENT ---
+// --- MAIN APP COMPONENT ---
 function MainApp() {
   const dispatch = useDispatch();
-  // const { data: weatherData } = useGetWeatherQuery();
-  const { data: pokeMan } = useGetPokemonByNameQuery("book");
-  const [books, setBooks] = React.useState([]);
-  const [showHome, setShowHome] = React.useState(false);
-  const [user, setUser] = React.useState("");
-  const userAuth = useSelector((state) => state.auth.user);
-  const userState = useSelector((state) => state.counter.userState); // Assuming your slice is named 'userSlice'
-  React.useEffect(() => {
-    // Example: Dispatch an action on component mount
-    // dispatch(authorizeUser("the new user is bryan dude"));
+  const userAuth = useSelector((state: any) => state.auth.user);
+
+  useEffect(() => {
     dispatch(increment({ value: 20 }));
-    console.log("user name user auth", userAuth);
-  }, [dispatch]);
+    console.log("Current User Auth Status:", userAuth);
+  }, [dispatch, userAuth]);
 
-  const djangoCall = async () => {
-    try {
-      const response = await fetch("http://127.0.0.1:8000/bryan/book/");
-      const data = await response.json();
-      setBooks(data);
-      console.log("DATA WAS THIS", data);
-    } catch (error) {
-      console.error("Error fetching books:", error);
-    }
-  };
-
-  const handleWebViewNavigationStateChange = (newNavState: any) => {
-    if (!newNavState) return;
-    const { url } = newNavState;
-    if (!url) return;
-
-    // Handle specific URLs (e.g., show home screen when URL includes "/home")
-    if (url.includes("/home")) {
-      setShowHome(true);
-    }
-  };
-
-  const handleViewMessage = (event) => {
-    try {
-      const userData = JSON.parse(event.nativeEvent.data);
-
-      console.log("User Dat received:", userData);
-      // setUser(userData);
-      dispatch(setUserData({ userData }));
-      // Use the received user data (e.g., update state, navigate)
-      // Example: Dispatch an action with the user data
-      dispatch(authorizeUser(userData.username));
-    } catch (error) {
-      console.error("Error parsing user data:", error);
-    }
-  };
-  console.log("ALL USER FINAL DATA", userState);
+  // 🛡️ STAFF TIP: Remove <NavigationContainer> here. 
+  // Expo Router / Root Layout already provides one.
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: '#000' }}>
       {userAuth?.userId ? (
-        // <NavigationContainer>
+        /* Show the Arena */
         <RootStack />
       ) : (
-        // </NavigationContainer>
-        // <WebViewComp
-        //   handleViewMessage={handleViewMessage}
-        //   handleWebViewNavigationStateChange={
-        //     handleWebViewNavigationStateChange
-        //   }
-        // />
-        <SocialLoginScreen />
+        /* Show the Auth Stack */
+        <StackNav.Navigator screenOptions={{ headerShown: false }}>
+          <StackNav.Screen name="Registration" component={RegistrationScreen} />
+          <StackNav.Screen name="Login" component={LoginScreen} />
+        </StackNav.Navigator>
       )}
     </View>
   );
 }
 
-// App Entry Point
+// --- ENTRY POINT ---
 export default function App() {
   return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
-        <GestureHandlerRootView>
+        <GestureHandlerRootView style={{ flex: 1 }}>
           <NotifierWrapper>
             <MainApp />
           </NotifierWrapper>

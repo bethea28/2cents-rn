@@ -113,19 +113,25 @@ export const api = createApi({
       }),
     }),
 
-    authLogin: build.mutation<any, any>({
-      query: (data) =>
-        console.log("LOGIN ATTEMPT", data) || {
-          url: "auth/login",
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: objectToUrlEncodedString({
-            email: data.email,
-            password: data.password,
-          }),
-        },
+    // Add this alongside your authLogin in the api slice
+    authLogin: build.mutation<any, FormData>({
+      query: (formData) => ({
+        url: "auth/login",
+        method: "POST",
+        // 🛡️ Staff Engineer Tip: DO NOT set headers here. 
+        // React Native will automatically set 'multipart/form-data' 
+        // and the correct boundary when it sees FormData.
+        body: formData,
+      }),
+    }),
+    authRegister: build.mutation<any, FormData>({
+      query: (formData) => ({
+        url: "auth/register", //
+        method: "POST", //
+        body: formData, //
+        // 🛡️ Staff Engineer Tip: DO NOT set headers here. 
+        // When 'body' is FormData, the system adds the boundary automatically.
+      }),
     }),
     // createStory: build.mutation<any, any>({
     //   query: (data) =>
@@ -351,6 +357,7 @@ export const {
   useAddCompanyMutation,
   useGoogleAuthMutation,
   useAuthLoginMutation,
+  useAuthRegisterMutation,
   useAddFeedbackMutation,
   useCreateStoryMutation,
   useUpdateStoryStatusMutation,
