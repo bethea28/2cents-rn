@@ -120,9 +120,12 @@ export const api = createApi({
     }),
 
     getAllCompleteStories: build.query({
-      query: () => ({
+      // 🛡️ Pass 'userId' as an argument here
+      query: (userId) => console.log('hey') || ({
         url: `/stories/getAllCompleteStories`,
         method: "GET",
+        // 🛡️ 'params' automatically turns { userId: 123 } into ?userId=123
+        params: userId ? { userId } : {},
       }),
       providesTags: ['stories'],
     }),

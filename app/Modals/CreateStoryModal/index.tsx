@@ -5,10 +5,8 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { Audio, Video, ResizeMode } from 'expo-av';
-import * as Device from 'expo-device';
+import { Ionicons } from '@expo/vector-icons'; // 🛡️ Added for Flip Icon
 import { useCreateStoryMutation, useHandleStoryRebuttalMutation } from "@/store/api/api";
-import { useNavigation } from "@react-navigation/native";
-
 
 export default function CreateStoryModal({ visible, onClose, storyId = null, mode = 'new' }) {
     // --- PERMISSIONS & API ---
@@ -20,6 +18,7 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
 
     // --- STATE MANAGEMENT ---
     const [step, setStep] = useState(1); // 1: Record, 2: Details, 3: Success
+    const [facing, setFacing] = useState('back'); // 🛡️ NEW: Track front/back camera
     const [isRecording, setIsRecording] = useState(false);
     const [videoUri, setVideoUri] = useState(null);
     const [title, setTitle] = useState('');
@@ -28,6 +27,11 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
     const cameraRef = useRef(null);
 
     const isLoading = isCreating || isRebutting;
+
+    // --- CAMERA FLIP LOGIC ---
+    const toggleCameraFacing = () => {
+        setFacing(current => (current === 'back' ? 'front' : 'back'));
+    };
 
     // --- PERMISSIONS UI ---
     if (!cameraPermission || !audioPermission) return null;
@@ -55,33 +59,21 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
         );
     }
 
-    // --- RECORDING LOGIC (REFACTORED) ---
-    // 1. Add this import at the top
-
-    // ... inside your component
-
+    // --- RECORDING LOGIC ---
     const startRecording = async () => {
         if (isRecording || !cameraRef.current) return;
-
         try {
-            // 🛡️ CRITICAL FIX 1: Explicitly set audio mode for iOS
-            // This prevents the "Recording failed" native error
             await Audio.setAudioModeAsync({
                 allowsRecordingIOS: true,
                 playsInSilentModeIOS: true,
             });
 
             setIsRecording(true);
-
-            // 🛡️ CRITICAL FIX 2: Add a small delay (200ms)
-            // This gives the hardware time to switch from "idle" to "video" mode
             await new Promise(resolve => setTimeout(resolve, 200));
 
             const video = await cameraRef.current.recordAsync({
                 maxDuration: 60,
                 quality: '720p',
-                // 🛡️ CRITICAL FIX 3: Force mute if necessary, 
-                // but usually setting the AudioMode above fixes it.
             });
 
             setVideoUri(video.uri);
@@ -89,9 +81,7 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
         } catch (error) {
             console.error("Recording failed", error);
             setIsRecording(false);
-
-            // If it still fails, it's likely a permission glitch
-            Alert.alert("Camera Error", "The Arena couldn't access the mic. Please check your settings.");
+            Alert.alert("Camera Error", "The Arena couldn't access the mic.");
         }
     };
 
@@ -104,10 +94,9 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
 
     // --- UPLOAD LOGIC ---
     const handleFinish = async () => {
-        const formData = new FormData();
-
         if (!videoUri) return Alert.alert("Error", "No video recorded.");
 
+        const formData = new FormData();
         formData.append('video', {
             uri: videoUri,
             name: mode === 'rebuttal' ? 'rebuttal.mp4' : 'challenge.mp4',
@@ -119,17 +108,15 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
                 await handleRebuttal({ id: storyId, formData }).unwrap();
             } else {
                 if (!title || !opponent) return Alert.alert("Missing Info", "Title and Opponent required.");
-
                 formData.append('title', title);
                 formData.append('opponentHandle', opponent);
                 formData.append('wager', stake);
                 formData.append('storyType', 'call-out');
-
                 await createStory(formData).unwrap();
             }
             setStep(3);
         } catch (err: any) {
-            Alert.alert("Upload Failed", err.data?.error || "Check your internet and try again.");
+            Alert.alert("Upload Failed", err.data?.error || "Error uploading beef.");
         }
     };
 
@@ -140,6 +127,7 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
         setOpponent('');
         setStake('Lunch');
         setIsRecording(false);
+        setFacing('back');
         onClose();
     };
 
@@ -149,11 +137,23 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
 
                 {/* STEP 1: RECORDING */}
                 {step === 1 && (
-                    <CameraView style={styles.camera} ref={cameraRef} mode="video">
+                    <CameraView
+                        style={styles.camera}
+                        ref={cameraRef}
+                        mode="video"
+                        facing={facing} // 🛡️ Pass facing state here
+                    >
                         <SafeAreaView style={styles.overlay}>
-                            <TouchableOpacity onPress={onClose} style={styles.backBtn}>
-                                <Text style={styles.cancelText}>CANCEL</Text>
-                            </TouchableOpacity>
+                            {/* 🛡️ HEADER ROW WITH FLIP BUTTON */}
+                            <View style={styles.headerRow}>
+                                <TouchableOpacity onPress={onClose} style={styles.backBtn}>
+                                    <Text style={styles.cancelText}>CANCEL</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity onPress={toggleCameraFacing} style={styles.flipBtn}>
+                                    <Ionicons name="camera-reverse-outline" size={30} color="white" />
+                                </TouchableOpacity>
+                            </View>
 
                             <Text style={styles.cameraHeader}>
                                 {mode === 'rebuttal' ? "THE REBUTTAL" : "STATE YOUR CASE"}
@@ -271,19 +271,21 @@ const styles = StyleSheet.create({
     title: { fontSize: 28, fontWeight: '900', color: '#fff', fontStyle: 'italic', marginBottom: 10 },
     camera: { flex: 1 },
     overlay: { flex: 1, justifyContent: 'space-between', alignItems: 'center' },
-    cameraHeader: { color: 'white', fontSize: 24, fontWeight: '900', fontStyle: 'italic', marginTop: 20 },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingHorizontal: 20, paddingTop: 10 },
+    flipBtn: { padding: 10, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 25 },
+    cameraHeader: { color: 'white', fontSize: 24, fontWeight: '900', fontStyle: 'italic' },
     bottomControls: { alignItems: 'center', marginBottom: 40 },
     recordButton: { width: 90, height: 90, borderRadius: 45, borderWidth: 6, borderColor: 'white', justifyContent: 'center', alignItems: 'center' },
     recordingActive: { borderColor: '#a349a4', transform: [{ scale: 1.1 }] },
     innerRecordCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#a349a4' },
     instruction: { color: 'white', marginTop: 15, fontWeight: '900', letterSpacing: 1 },
-    backBtn: { alignSelf: 'flex-start', marginLeft: 20, marginTop: 10 },
+    backBtn: { padding: 10 },
     cancelText: { color: 'white', fontWeight: '900', fontSize: 14 },
     formContainer: { flex: 1, backgroundColor: '#000' },
     previewVideo: { width: '100%', height: '40%' },
     inputSection: { padding: 25 },
     label: { fontSize: 12, fontWeight: '900', color: '#a349a4', marginBottom: 8, marginTop: 15, letterSpacing: 1 },
-    input: { backgroundColor: '#111', color: '#fff', padding: 15, borderRadius: 10, fontSize: 16, borderWeight: 1, borderColor: '#222' },
+    input: { backgroundColor: '#111', color: '#fff', padding: 15, borderRadius: 10, fontSize: 16 },
     chipContainer: { flexDirection: 'row', gap: 10, marginBottom: 20, marginTop: 10 },
     chip: { paddingVertical: 8, paddingHorizontal: 15, backgroundColor: '#111', borderRadius: 20, borderWidth: 1, borderColor: '#333' },
     activeChip: { backgroundColor: '#a349a4', borderColor: '#a349a4' },
