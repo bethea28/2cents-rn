@@ -15,26 +15,30 @@ import { useSelector } from "react-redux";
 import CreateStoryModal from '../../Modals/CreateStoryModal';
 import { useGetAllCompleteStoriesQuery } from "@/store/api/api";
 
-// 🛡️ NEW SUB-COMPONENT: This goes ABOVE your ProfileScreen definition
+// 🛡️ SUB-COMPONENT: Individual card logic to prevent whole-list re-renders
 const VideoCard = ({ item, navigation }: { item: any, navigation: any }) => {
   const [status, setStatus] = useState<any>({});
 
   return (
     <TouchableOpacity
       style={styles.storyCard}
-      onPress={() => navigation.navigate('StoryDetail', { storyId: item.id })}
+      onPress={() => {
+        navigation.navigate('FullStoryScreen', {
+          storyId: item.id,
+          initialData: item
+        });
+      }}
     >
       <Video
         source={{ uri: item.sideAVideoUrl }}
         style={styles.storyImage}
         resizeMode="cover"
         isLooping
-        shouldPlay={true} // 🛡️ Set to true for the "Reel" effect
+        shouldPlay={true}
         isMuted={true}
-        onPlaybackStatusUpdate={status => setStatus(() => status)}
+        onPlaybackStatusUpdate={s => setStatus(() => s)}
       />
 
-      {/* 🎭 PLAYING INDICATOR: Show only if not loaded yet */}
       {!status.isLoaded && (
         <View style={styles.loaderOverlay}>
           <ActivityIndicator color="#fff" />
@@ -53,16 +57,10 @@ export const ProfileScreen = () => {
   const navigation = useNavigation();
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  // 🛡️ Staff Engineer: Using the exact structure from your console log
-  // Log shows: {"userId": 2, "userName": "chris", ...}
   const user = useSelector((state: any) => state.counter.userState);
   const currentUserId = user?.userId;
 
-  // 🛡️ Fetching real history using the query param
   const { data: stories, isLoading } = useGetAllCompleteStoriesQuery(currentUserId);
-
-  const profileUri = user?.profilePic || "https://via.placeholder.com/150";
-
 
   const renderStoryItem = ({ item }: { item: any }) => (
     <VideoCard item={item} navigation={navigation} />
@@ -70,68 +68,46 @@ export const ProfileScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* 🥊 HEADER: Fighter Identity */}
       <View style={styles.header}>
         <View style={styles.avatarWrapper}>
-          <Image style={styles.avatar} source={{ uri: profileUri }} />
+          <Image style={styles.avatar} source={{ uri: user?.profilePic || "https://via.placeholder.com/150" }} />
         </View>
-
         <View style={styles.identity}>
-          {/* 🛡️ Fixed: Using userName to match your Redux log */}
-          <Text style={styles.username}>
-            {user?.userName?.toUpperCase() || "FIGHTER"}
-          </Text>
-          <Text style={styles.bio}>Entering the Arena... Ready for battle.</Text>
+          <Text style={styles.username}>{user?.userName?.toUpperCase() || "FIGHTER"}</Text>
+          <Text style={styles.bio}>Arena Veteran • {stories?.length || 0} Battles</Text>
         </View>
       </View>
 
-      {/* 📊 STATS Bar */}
       <View style={styles.statsBar}>
         <View style={styles.statBox}>
           <Text style={styles.statNumber}>{stories?.length || 0}</Text>
           <Text style={styles.statLabel}>BATTLES</Text>
         </View>
-
         <View style={[styles.statBox, styles.statBorder]}>
-          {/* 🛡️ Staff Engineer Fix: item removed, using user state directly */}
           <Text style={styles.statNumber}>{user?.reputation || 0}</Text>
           <Text style={styles.statLabel}>REP</Text>
         </View>
-
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => setIsModalVisible(true)}
-        >
+        <TouchableOpacity style={styles.createButton} onPress={() => setIsModalVisible(true)}>
           <Text style={styles.createButtonText}>+ POST</Text>
         </TouchableOpacity>
       </View>
 
-      {/* 🎞️ FEED: Highlight Reel */}
       <View style={styles.feedSection}>
         <Text style={styles.sectionTitle}>HIGHLIGHT REEL</Text>
-
         {isLoading ? (
           <ActivityIndicator color="#a349a4" style={{ marginTop: 50 }} />
         ) : (
           <FlatList
-            style={styles.storyList}
             horizontal
             showsHorizontalScrollIndicator={false}
             data={stories}
-            // 🛡️ Fixed Duplicate Key Error: Using the unique database ID
             keyExtractor={(item) => item.id.toString()}
             renderItem={renderStoryItem}
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>No battles recorded yet.</Text>
-            }
+            ListEmptyComponent={<Text style={styles.emptyText}>No battles recorded.</Text>}
           />
         )}
-
-        <CreateStoryModal
-          visible={isModalVisible}
-          onClose={() => setIsModalVisible(false)}
-        />
       </View>
+      <CreateStoryModal visible={isModalVisible} onClose={() => setIsModalVisible(false)} />
     </SafeAreaView>
   );
 };
@@ -154,14 +130,10 @@ const styles = StyleSheet.create({
   feedSection: { marginTop: 25, paddingLeft: 20 },
   sectionTitle: { color: "#fff", fontSize: 14, fontWeight: "900", marginBottom: 15 },
   storyCard: { marginRight: 15, width: 150, height: 220, borderRadius: 12, backgroundColor: "#111", overflow: "hidden" },
-  storyImage: { width: '100%', height: '100%', opacity: 0.6 },
-  statusBadge: { position: 'absolute', top: 10, right: 10, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4 },
-  activeBg: { backgroundColor: '#a349a4' },
-  settledBg: { backgroundColor: '#444' },
-  badgeText: { color: '#fff', fontSize: 8, fontWeight: '900' },
-  storyInfo: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 10, backgroundColor: 'rgba(0,0,0,0.7)' },
+  storyImage: { width: '100%', height: '100%' },
+  loaderOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  storyInfo: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 10, backgroundColor: 'rgba(0,0,0,0.6)' },
   storyTitle: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
   wagerText: { color: '#4CD964', fontSize: 10, fontWeight: '800' },
-  opponentText: { color: '#aaa', fontSize: 9, marginTop: 2 },
-  emptyText: { color: '#444', textAlign: 'center', marginTop: 20 }
+  emptyText: { color: '#444', textAlign: 'center', marginTop: 20, paddingRight: 20 }
 });

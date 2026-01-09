@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useCallback, memo, useEffect } from 'react';
 import {
     View, Text, StyleSheet, Dimensions, Pressable,
-    SafeAreaView, Platform, Alert, ActivityIndicator,
+    SafeAreaView, Platform, ActivityIndicator,
     Keyboard, Animated, LayoutAnimation, UIManager
 } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
@@ -20,10 +20,11 @@ import {
     usePostCommentMutation,
     useGetCommentsQuery,
     useToggleCommentLikeMutation,
-    useCastVoteMutation
+    useCastVoteMutation,
+    useGetStoryByIdQuery
 } from "@/store/api/api";
 
-const { height, width } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -63,13 +64,18 @@ const CommentInput = memo(({ replyTarget, setReplyTarget, onSend, isPosting }) =
 });
 
 export const FullStoryScreen = ({ route, navigation }) => {
-    const { story } = route.params;
+    // 🛡️ Staff Engineer: Get ID and initial data from the Profile Reel
+    const { storyId, initialData } = route.params;
+
+    // 🛡️ Fetch fresh data while using initialData to prevent flickers
+    const { data: liveStory } = useGetStoryByIdQuery(storyId);
+    const story = liveStory || initialData;
 
     const bottomSheetRef = useRef(null);
     const meterAnim = useRef(new Animated.Value(50)).current;
 
     // --- STATE ---
-    const [isSheetOpen, setIsSheetOpen] = useState(false); // Tracks position
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [expandedSide, setExpandedSide] = useState(null);
     const [mutedSide, setMutedSide] = useState('B');
     const [replyTarget, setReplyTarget] = useState(null);
@@ -79,14 +85,13 @@ export const FullStoryScreen = ({ route, navigation }) => {
     const [postComment, { isLoading: isPosting }] = usePostCommentMutation();
     const [toggleCommentLike] = useToggleCommentLikeMutation();
     const [castVote] = useCastVoteMutation();
-    const { data: commentsData, isLoading: isCommentsLoading } = useGetCommentsQuery({ storyId: story.id });
+    const { data: commentsData, isLoading: isCommentsLoading } = useGetCommentsQuery({ storyId: story?.id });
 
     const snapPoints = useMemo(() => ['1%', '75%', '96%'], []);
 
-    // 🛠️ BOTTOM SHEET LISTENER
     const handleSheetChange = useCallback((index) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setIsSheetOpen(index > 0); // Meter moves to header if index is 1 or 2
+        setIsSheetOpen(index > 0);
     }, []);
 
     const toggleExpand = (side) => {
@@ -100,6 +105,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
     };
 
     const handleVote = async (side) => {
+        if (story?.status !== 'active-voting') return;
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setVoteMessage(`TEAM ${side} JOINED`);
         setTimeout(() => setVoteMessage(null), 1500);
@@ -107,10 +113,11 @@ export const FullStoryScreen = ({ route, navigation }) => {
     };
 
     useEffect(() => {
-        const totalVotes = (story.sideAVotes || 0) + (story.sideBVotes || 0);
-        const percentage = totalVotes > 0 ? (story.sideAVotes / totalVotes) * 100 : 50;
+        if (!story) return;
+        const totalVotes = (story.challengerVotes || 0) + (story.rebuttalVotes || 0);
+        const percentage = totalVotes > 0 ? (story.challengerVotes / totalVotes) * 100 : 50;
         Animated.spring(meterAnim, { toValue: percentage, useNativeDriver: false, tension: 20, friction: 7 }).start();
-    }, [story.sideAVotes, story.sideBVotes]);
+    }, [story?.challengerVotes, story?.rebuttalVotes]);
 
     const commentsList = useMemo(() => {
         const rawComments = commentsData?.data || [];
@@ -139,53 +146,76 @@ export const FullStoryScreen = ({ route, navigation }) => {
         </BottomSheetFooter>
     ), [replyTarget, isPosting]);
 
+    if (!story) return <ActivityIndicator style={{ flex: 1 }} color="#a349a4" />;
+
     return (
         <View style={styles.container}>
-            {/* 1. ARENA (Videos) */}
             <View style={styles.arenaContainer}>
+                {/* SIDE A */}
                 <Pressable
                     style={[styles.videoSegment, expandedSide === 'A' ? { flex: 2 } : expandedSide === 'B' ? { flex: 0.5 } : { flex: 1 }]}
                     onPress={() => toggleExpand('A')}
                 >
-                    <Video source={{ uri: story.sideAVideoUrl }} style={StyleSheet.absoluteFill} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={mutedSide === 'A'} />
-                    <View style={styles.voteBtnOverlayTop}><Pressable style={styles.voteBtn} onPress={() => handleVote('A')}><Text style={styles.voteBtnText}>VOTE A</Text></Pressable></View>
+                    <Video
+                        source={{ uri: story.sideAVideoUrl }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode={ResizeMode.COVER}
+                        shouldPlay
+                        isLooping
+                        isMuted={mutedSide === 'A'}
+                    />
+                    {story.status === 'active-voting' && (
+                        <View style={styles.voteBtnOverlayTop}>
+                            <Pressable style={styles.voteBtn} onPress={() => handleVote('A')}>
+                                <Text style={styles.voteBtnText}>VOTE A</Text>
+                            </Pressable>
+                        </View>
+                    )}
                 </Pressable>
 
-                {/* 🛠️ DEFAULT METER (Hidden when sheet is open) */}
                 {!isSheetOpen && (
                     <View style={styles.centerMeterContainer}>
                         <BattleMeter meterAnim={meterAnim} isArenaLit={true} />
                     </View>
                 )}
 
+                {/* SIDE B */}
                 <Pressable
                     style={[styles.videoSegment, expandedSide === 'B' ? { flex: 2 } : expandedSide === 'A' ? { flex: 0.5 } : { flex: 1 }]}
                     onPress={() => toggleExpand('B')}
                 >
-                    <Video source={{ uri: story.sideBVideoUrl }} style={StyleSheet.absoluteFill} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={mutedSide === 'B'} />
-                    <View style={styles.voteBtnOverlayBottom}><Pressable style={styles.voteBtn} onPress={() => handleVote('B')}><Text style={styles.voteBtnText}>VOTE B</Text></Pressable></View>
+                    <Video
+                        source={{ uri: story.sideBVideoUrl }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode={ResizeMode.COVER}
+                        shouldPlay
+                        isLooping
+                        isMuted={mutedSide === 'B'}
+                    />
+                    {story.status === 'active-voting' && (
+                        <View style={styles.voteBtnOverlayBottom}>
+                            <Pressable style={styles.voteBtn} onPress={() => handleVote('B')}>
+                                <Text style={styles.voteBtnText}>VOTE B</Text>
+                            </Pressable>
+                        </View>
+                    )}
                 </Pressable>
             </View>
 
-            {/* 2. HEADER OVERLAY */}
             <SafeAreaView style={styles.headerOverlay} pointerEvents="box-none">
                 <View style={styles.scoreboardRow}>
                     <Pressable style={styles.closeButton} onPress={() => navigation.goBack()}>
                         <Ionicons name="close" size={28} color="white" />
                     </Pressable>
-
-                    {/* 🛠️ HEADER METER (Visible only when sheet is open) */}
                     {isSheetOpen && (
                         <View style={styles.headerMeterWrapper}>
                             <BattleMeter meterAnim={meterAnim} isArenaLit={true} />
                         </View>
                     )}
-
                     <View style={{ width: 44 }} />
                 </View>
             </SafeAreaView>
 
-            {/* 3. INTERACTION PREVIEW */}
             <View style={styles.interactionLayer}>
                 <Pressable style={styles.commentPreview} onPress={() => bottomSheetRef.current?.snapToIndex(1)}>
                     <Ionicons name="chatbubble-outline" size={20} color="#666" />
@@ -193,7 +223,6 @@ export const FullStoryScreen = ({ route, navigation }) => {
                 </Pressable>
             </View>
 
-            {/* 4. BOTTOM SHEET */}
             <BottomSheet
                 ref={bottomSheetRef}
                 index={0}
@@ -210,7 +239,11 @@ export const FullStoryScreen = ({ route, navigation }) => {
                     contentContainerStyle={{ paddingBottom: 100 }}
                     renderItem={({ item }) => (
                         <View>
-                            <CommentItem comment={item} onReply={() => setReplyTarget({ id: item.id, username: item.author?.username, rootId: null })} onLike={() => toggleCommentLike({ commentId: item.id })} />
+                            <CommentItem
+                                comment={item}
+                                onReply={() => setReplyTarget({ id: item.id, username: item.author?.username, rootId: null })}
+                                onLike={() => toggleCommentLike({ commentId: item.id })}
+                            />
                             {item.replies?.map(reply => (
                                 <CommentItem key={reply.id} comment={reply} isReply={true} onReply={() => setReplyTarget({ id: reply.id, username: reply.author?.username, rootId: item.id })} onLike={() => toggleCommentLike({ commentId: reply.id })} />
                             ))}
@@ -233,32 +266,24 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
     arenaContainer: { height: height * 0.72, backgroundColor: '#000' },
     videoSegment: { overflow: 'hidden', position: 'relative' },
-
-    // 🛠️ Center Positioning
     centerMeterContainer: { height: 4, zIndex: 10, justifyContent: 'center', backgroundColor: '#000' },
-
-    // 🛠️ Header Logic
     headerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100 },
     scoreboardRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingTop: Platform.OS === 'android' ? 40 : 10 },
     headerMeterWrapper: { flex: 1, marginHorizontal: 15 },
     closeButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-
     voteBtnOverlayTop: { position: 'absolute', bottom: 20, left: 20 },
     voteBtnOverlayBottom: { position: 'absolute', bottom: 20, right: 20 },
     voteBtn: { backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 8, paddingHorizontal: 15, borderRadius: 20, borderWidth: 1, borderColor: '#fff' },
     voteBtnText: { color: '#fff', fontWeight: '900', fontSize: 12 },
-
     interactionLayer: { flex: 1, padding: 20, backgroundColor: '#0A0A0A' },
     commentPreview: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#161616', padding: 15, borderRadius: 12 },
     commentPlaceholder: { color: '#666', marginLeft: 10 },
-
     stickyFooter: { backgroundColor: '#0A0A0A', paddingBottom: Platform.OS === 'ios' ? 30 : 10, borderTopWidth: 1, borderTopColor: '#222' },
     replyBar: { flexDirection: 'row', justifyContent: 'space-between', padding: 10, backgroundColor: '#161616' },
     replyText: { color: '#888', fontSize: 12 },
     inputRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingTop: 10 },
     input: { flex: 1, backgroundColor: '#1A1A1A', color: '#fff', padding: 12, borderRadius: 25, fontSize: 16 },
     sendBtn: { marginLeft: 15 },
-
     voteFlashOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', zIndex: 999 },
     voteFlashText: { color: '#fff', fontSize: 32, fontWeight: '900', textShadowColor: '#000', textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 10 },
     emptyText: { color: '#444', textAlign: 'center', marginTop: 50 }
