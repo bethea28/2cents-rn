@@ -5,10 +5,12 @@ import { useSelector } from "react-redux";
 import { formatDistanceToNow } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import { VideoPlayerPlayback } from '../../Components/VideoPlayerPlayback';
-
 export const ChallengesScreen = ({ navigation }) => {
+    // 🛡️ Staff Engineer: Using the same userId we used in the Backend Query
     const userState = useSelector((state) => state.counter.userState);
-    const { data: stories, isLoading } = useGetAllPendingStoriesQuery(userState?.userId);
+    const currentUserId = userState?.userId;
+
+    const { data: stories, isLoading } = useGetAllPendingStoriesQuery(currentUserId);
 
     if (isLoading) return <ActivityIndicator style={styles.loadingFull} />;
 
@@ -20,10 +22,18 @@ export const ChallengesScreen = ({ navigation }) => {
                 renderItem={({ item }) => {
                     const isAwaitingAcceptance = item.status === 'pending-acceptance';
 
+                    // 🛡️ Check if the current user is the one who sent it (Side A)
+                    const isTheChallenger = item.sideAAuthorId === currentUserId;
+
                     return (
                         <TouchableOpacity
-                            onPress={() => navigation.navigate('ChallengeDetailsScreen', { story: item })}
-                            style={styles.card}
+                            // 🛡️ Logic: Disable onPress if user is the challenger
+                            onPress={() => !isTheChallenger && navigation.navigate('ChallengeDetailsScreen', { story: item })}
+                            disabled={isTheChallenger}
+                            style={[
+                                styles.card,
+                                isTheChallenger && { opacity: 0.6 } // 🎨 Visual cue: faded out if waiting
+                            ]}
                         >
                             {/* VIDEO TEASER CONTAINER */}
                             <View style={styles.videoContainer}>
@@ -32,8 +42,6 @@ export const ChallengesScreen = ({ navigation }) => {
                                     isMuted={true}
                                     style={StyleSheet.absoluteFill}
                                 />
-
-                                {/* 🎨 UX: The Play Icon Overlay */}
                                 <View style={styles.videoOverlay}>
                                     <Ionicons name="play" size={20} color="white" style={styles.playIcon} />
                                 </View>
@@ -42,28 +50,29 @@ export const ChallengesScreen = ({ navigation }) => {
                             {/* TEXT CONTENT */}
                             <View style={styles.textContent}>
                                 <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-                                <Text style={styles.username}>From: @{item.SideA?.username}</Text>
+                                <Text style={styles.username}>
+                                    {isTheChallenger ? "Waiting for response..." : `From: @${item.SideA?.username}`}
+                                </Text>
                                 <Text style={styles.wager}>Stake: {item.wager}</Text>
 
-                                {/* The Status/Timer Row */}
                                 <View style={styles.statusRow}>
                                     <Ionicons
                                         name={isAwaitingAcceptance ? "time-outline" : "flame"}
                                         size={14}
-                                        color={isAwaitingAcceptance ? "#5856D6" : "#FFD700"}
+                                        color={isTheChallenger ? "#666" : (isAwaitingAcceptance ? "#5856D6" : "#FFD700")}
                                     />
                                     <Text style={[
                                         styles.statusText,
-                                        { color: isAwaitingAcceptance ? '#5856D6' : '#FFD700' }
+                                        { color: isTheChallenger ? '#666' : (isAwaitingAcceptance ? '#5856D6' : '#FFD700') }
                                     ]}>
-                                        {isAwaitingAcceptance ? " PENDING ACCEPTANCE" : " TIME TO RECORD"}
+                                        {isTheChallenger ? " SENT (PENDING)" : (isAwaitingAcceptance ? " PENDING ACCEPTANCE" : " TIME TO RECORD")}
                                         {" • "}{item.expiresAt ? formatDistanceToNow(new Date(item.expiresAt)) : 'N/A'}
                                     </Text>
                                 </View>
                             </View>
 
-                            {/* 🎨 UX: The "Discovery" Chevron */}
-                            <Ionicons name="chevron-forward" size={20} color="#444" />
+                            {/* 🎨 UX: Hide chevron if they can't click */}
+                            {!isTheChallenger && <Ionicons name="chevron-forward" size={20} color="#444" />}
                         </TouchableOpacity>
                     );
                 }}
@@ -74,7 +83,6 @@ export const ChallengesScreen = ({ navigation }) => {
         </View>
     );
 };
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,

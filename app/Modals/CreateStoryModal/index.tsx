@@ -1,13 +1,14 @@
 import React, { useState, useRef } from 'react';
 import {
     StyleSheet, Text, View, TouchableOpacity, Modal,
-    TextInput, Alert, ActivityIndicator
+    TextInput, Alert, ActivityIndicator, SafeAreaView
 } from 'react-native';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
-import { Video, ResizeMode } from 'expo-av';
+import { Audio, Video, ResizeMode } from 'expo-av';
 import * as Device from 'expo-device';
-import { useCreateStoryMutation, useUpdateStoryStatusMutation, useHandleStoryRebuttalMutation } from "@/store/api/api";
+import { useCreateStoryMutation, useHandleStoryRebuttalMutation } from "@/store/api/api";
 import { useNavigation } from "@react-navigation/native";
+
 
 export default function CreateStoryModal({ visible, onClose, storyId = null, mode = 'new' }) {
     // --- PERMISSIONS & API ---
@@ -15,8 +16,7 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
     const [audioPermission, requestAudioPermission] = useMicrophonePermissions();
 
     const [createStory, { isLoading: isCreating }] = useCreateStoryMutation();
-    const [updateStory, { isLoading: isUpdating }] = useUpdateStoryStatusMutation();
-    const [handleRebuttal] = useHandleStoryRebuttalMutation();
+    const [handleRebuttal, { isLoading: isRebutting }] = useHandleStoryRebuttalMutation();
 
     // --- STATE MANAGEMENT ---
     const [step, setStep] = useState(1); // 1: Record, 2: Details, 3: Success
@@ -26,21 +26,18 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
     const [opponent, setOpponent] = useState('');
     const [stake, setStake] = useState('Lunch');
     const cameraRef = useRef(null);
-    const navigation = useNavigation();
 
-    const isLoading = isCreating || isUpdating;
+    const isLoading = isCreating || isRebutting;
 
     // --- PERMISSIONS UI ---
-    if (!cameraPermission || !audioPermission) {
-        return <View style={styles.container} />;
-    }
+    if (!cameraPermission || !audioPermission) return null;
 
     if (!cameraPermission.granted || !audioPermission.granted) {
         return (
             <Modal visible={visible} animationType="slide">
                 <View style={styles.permissionContainer}>
-                    <Text style={styles.title}>Camera & Audio Needed</Text>
-                    <Text style={styles.subtext}>We need both to record your challenge.</Text>
+                    <Text style={styles.title}>ACCESS REQUIRED</Text>
+                    <Text style={styles.subtext}>The Arena requires Camera & Audio to record your case.</Text>
                     <TouchableOpacity
                         style={styles.submitButton}
                         onPress={async () => {
@@ -48,52 +45,60 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
                             await requestAudioPermission();
                         }}
                     >
-                        <Text style={styles.buttonText}>Grant Permissions</Text>
+                        <Text style={styles.buttonText}>GRANT PERMISSIONS</Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={onClose} style={{ marginTop: 20 }}>
-                        <Text style={{ color: 'red' }}>Cancel</Text>
+                        <Text style={{ color: 'red', fontWeight: 'bold' }}>CANCEL</Text>
                     </TouchableOpacity>
                 </View>
             </Modal>
         );
     }
 
-    // --- RECORDING LOGIC ---
+    // --- RECORDING LOGIC (REFACTORED) ---
+    // 1. Add this import at the top
+
+    // ... inside your component
+
     const startRecording = async () => {
         if (isRecording || !cameraRef.current) return;
 
-        if (!Device.isDevice) {
-            console.log("BYPASS: Running on Simulator");
-            setVideoUri("https://vjs.zencdn.net/v/oceans.mp4");
-            setStep(2);
-            return;
-        }
-
         try {
+            // 🛡️ CRITICAL FIX 1: Explicitly set audio mode for iOS
+            // This prevents the "Recording failed" native error
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: true,
+                playsInSilentModeIOS: true,
+            });
+
             setIsRecording(true);
+
+            // 🛡️ CRITICAL FIX 2: Add a small delay (200ms)
+            // This gives the hardware time to switch from "idle" to "video" mode
+            await new Promise(resolve => setTimeout(resolve, 200));
+
             const video = await cameraRef.current.recordAsync({
                 maxDuration: 60,
                 quality: '720p',
+                // 🛡️ CRITICAL FIX 3: Force mute if necessary, 
+                // but usually setting the AudioMode above fixes it.
             });
-            setVideoUri(video.uri);
-            // setVideoUri("https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4");
 
+            setVideoUri(video.uri);
             setStep(2);
         } catch (error) {
             console.error("Recording failed", error);
             setIsRecording(false);
-            Alert.alert("Error", "Could not start recording.");
+
+            // If it still fails, it's likely a permission glitch
+            Alert.alert("Camera Error", "The Arena couldn't access the mic. Please check your settings.");
         }
     };
 
-    const stopRecording = async () => {
+    const stopRecording = () => {
         if (cameraRef.current && isRecording) {
-            try {
-                cameraRef.current.stopRecording();
-                setIsRecording(false);
-            } catch (e) {
-                console.error("Stop recording error", e);
-            }
+            cameraRef.current.stopRecording();
+            setIsRecording(false);
         }
     };
 
@@ -101,60 +106,41 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
     const handleFinish = async () => {
         const formData = new FormData();
 
-        if (mode === 'rebuttal') {
-            // --- REBUTTAL FLOW (Activates the 72h Arena) ---
-            formData.append('video', {
-                uri: videoUri,
-                name: 'rebuttal.mp4',
-                type: 'video/mp4',
-            });
+        if (!videoUri) return Alert.alert("Error", "No video recorded.");
 
-            // Note: We removed 'status: complete' because the 
-            // backend now sets it to 'active-voting' automatically.
+        formData.append('video', {
+            uri: videoUri,
+            name: mode === 'rebuttal' ? 'rebuttal.mp4' : 'challenge.mp4',
+            type: 'video/mp4',
+        } as any);
 
-            try {
-                // This hits your new 'submitRebuttal' controller
+        try {
+            if (mode === 'rebuttal') {
                 await handleRebuttal({ id: storyId, formData }).unwrap();
-                setStep(3);
-            } catch (err) {
-                Alert.alert("Rebuttal Failed", err.data?.error || "Could not post response.");
-            }
-        } else {
-            // --- NEW CHALLENGE FLOW (Starts the 24h Clock) ---
-            if (!title || !opponent) {
-                Alert.alert("Missing Info", "Please provide a title and an opponent.");
-                return;
-            }
+            } else {
+                if (!title || !opponent) return Alert.alert("Missing Info", "Title and Opponent required.");
 
-            formData.append('video', {
-                uri: videoUri,
-                name: 'challenge.mp4',
-                type: 'video/mp4',
-            });
-            formData.append('title', title);
-            formData.append('opponentHandle', opponent);
-            formData.append('wager', stake); // Changed from 'stake' to 'wager' to match service
-            formData.append('storyType', 'call-out');
+                formData.append('title', title);
+                formData.append('opponentHandle', opponent);
+                formData.append('wager', stake);
+                formData.append('storyType', 'call-out');
 
-            try {
                 await createStory(formData).unwrap();
-                setStep(3);
-            } catch (err) {
-                Alert.alert("Challenge Failed", err.data?.error || "Upload failed.");
             }
+            setStep(3);
+        } catch (err: any) {
+            Alert.alert("Upload Failed", err.data?.error || "Check your internet and try again.");
         }
     };
 
     const resetFlow = () => {
         setStep(1);
-        // navigation.navigate("Home");
         setVideoUri(null);
         setTitle('');
         setOpponent('');
         setStake('Lunch');
         setIsRecording(false);
         onClose();
-
     };
 
     return (
@@ -164,25 +150,29 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
                 {/* STEP 1: RECORDING */}
                 {step === 1 && (
                     <CameraView style={styles.camera} ref={cameraRef} mode="video">
-                        <View style={styles.overlay}>
+                        <SafeAreaView style={styles.overlay}>
                             <TouchableOpacity onPress={onClose} style={styles.backBtn}>
-                                <Text style={{ color: 'white', fontWeight: 'bold' }}>Cancel</Text>
+                                <Text style={styles.cancelText}>CANCEL</Text>
                             </TouchableOpacity>
+
                             <Text style={styles.cameraHeader}>
-                                {mode === 'rebuttal' ? "Your Rebuttal" : "State Your Case"}
+                                {mode === 'rebuttal' ? "THE REBUTTAL" : "STATE YOUR CASE"}
                             </Text>
-                            <TouchableOpacity
-                                style={[styles.recordButton, isRecording && styles.recordingActive]}
-                                onLongPress={startRecording}
-                                onPressOut={stopRecording}
-                                delayLongPress={150}
-                            >
-                                <View style={styles.innerRecordCircle} />
-                            </TouchableOpacity>
-                            <Text style={styles.instruction}>
-                                {isRecording ? "RECORDING..." : "HOLD TO RECORD"}
-                            </Text>
-                        </View>
+
+                            <View style={styles.bottomControls}>
+                                <TouchableOpacity
+                                    style={[styles.recordButton, isRecording && styles.recordingActive]}
+                                    onLongPress={startRecording}
+                                    onPressOut={stopRecording}
+                                    delayLongPress={150}
+                                >
+                                    <View style={styles.innerRecordCircle} />
+                                </TouchableOpacity>
+                                <Text style={styles.instruction}>
+                                    {isRecording ? "RECORDING..." : "HOLD TO RECORD"}
+                                </Text>
+                            </View>
+                        </SafeAreaView>
                     </CameraView>
                 )}
 
@@ -201,27 +191,29 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
                         <View style={styles.inputSection}>
                             {mode === 'rebuttal' ? (
                                 <View style={styles.rebuttalInfo}>
-                                    <Text style={styles.rebuttalTitle}>Ready to Fire Back?</Text>
-                                    <Text style={styles.subtext}>This will complete the beef and notify the challenger.</Text>
+                                    <Text style={styles.rebuttalTitle}>READY TO FIRE BACK?</Text>
+                                    <Text style={styles.subtext}>This completes the beef. There is no turning back.</Text>
                                 </View>
                             ) : (
                                 <>
-                                    <Text style={styles.label}>What's the Beef?</Text>
+                                    <Text style={styles.label}>THE BEEF</Text>
                                     <TextInput
                                         style={styles.input}
-                                        placeholder="e.g. Someone stole my lunch"
+                                        placeholder="What happened?"
+                                        placeholderTextColor="#666"
                                         value={title}
                                         onChangeText={setTitle}
                                     />
-                                    <Text style={styles.label}>Who are you calling out?</Text>
+                                    <Text style={styles.label}>OPPONENT HANDLE</Text>
                                     <TextInput
                                         style={styles.input}
                                         placeholder="@username"
+                                        placeholderTextColor="#666"
                                         value={opponent}
                                         onChangeText={setOpponent}
                                         autoCapitalize="none"
                                     />
-                                    <Text style={styles.label}>What are the stakes?</Text>
+                                    <Text style={styles.label}>STAKES</Text>
                                     <View style={styles.chipContainer}>
                                         {['Lunch', 'Apology', '$20'].map(s => (
                                             <TouchableOpacity
@@ -229,7 +221,7 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
                                                 style={[styles.chip, stake === s && styles.activeChip]}
                                                 onPress={() => setStake(s)}
                                             >
-                                                <Text style={stake === s ? { color: 'white' } : {}}>{s}</Text>
+                                                <Text style={[styles.chipText, stake === s && { color: 'white' }]}>{s}</Text>
                                             </TouchableOpacity>
                                         ))}
                                     </View>
@@ -241,17 +233,15 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
                                 onPress={handleFinish}
                                 disabled={isLoading}
                             >
-                                {isLoading ? (
-                                    <ActivityIndicator color="white" />
-                                ) : (
+                                {isLoading ? <ActivityIndicator color="white" /> : (
                                     <Text style={styles.buttonText}>
                                         {mode === 'rebuttal' ? "SEND REBUTTAL" : "ISSUE CHALLENGE"}
                                     </Text>
                                 )}
                             </TouchableOpacity>
 
-                            <TouchableOpacity onPress={() => setStep(1)} style={{ marginTop: 15 }}>
-                                <Text style={{ textAlign: 'center', color: '#666' }}>Re-record</Text>
+                            <TouchableOpacity onPress={() => setStep(1)} style={{ marginTop: 20 }}>
+                                <Text style={styles.reRecordText}>RE-RECORD</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -261,12 +251,12 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
                 {step === 3 && (
                     <View style={styles.successContainer}>
                         <Text style={styles.giantEmoji}>{mode === 'rebuttal' ? "🔥" : "⚖️"}</Text>
-                        <Text style={styles.header}>{mode === 'rebuttal' ? "Rebuttal Sent!" : "Case Filed!"}</Text>
-                        <Text style={styles.subtext}>
-                            {mode === 'rebuttal' ? "The beef is now complete." : `Challenge sent to ${opponent}.`}
+                        <Text style={styles.successHeader}>{mode === 'rebuttal' ? "REBUTTAL SENT" : "CASE FILED"}</Text>
+                        <Text style={styles.successSubtext}>
+                            {mode === 'rebuttal' ? "The arena awaits the verdict." : `Your challenge to ${opponent} is live.`}
                         </Text>
                         <TouchableOpacity style={styles.finalButton} onPress={resetFlow}>
-                            <Text style={styles.buttonText}>Back to Feed</Text>
+                            <Text style={styles.buttonText}>RETURN TO ARENA</Text>
                         </TouchableOpacity>
                     </View>
                 )}
@@ -277,31 +267,36 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
-    permissionContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#fff' },
-    title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10 },
+    permissionContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30, backgroundColor: '#000' },
+    title: { fontSize: 28, fontWeight: '900', color: '#fff', fontStyle: 'italic', marginBottom: 10 },
     camera: { flex: 1 },
-    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.1)', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 60 },
-    cameraHeader: { position: 'absolute', top: 60, color: 'white', fontSize: 24, fontWeight: 'bold' },
+    overlay: { flex: 1, justifyContent: 'space-between', alignItems: 'center' },
+    cameraHeader: { color: 'white', fontSize: 24, fontWeight: '900', fontStyle: 'italic', marginTop: 20 },
+    bottomControls: { alignItems: 'center', marginBottom: 40 },
     recordButton: { width: 90, height: 90, borderRadius: 45, borderWidth: 6, borderColor: 'white', justifyContent: 'center', alignItems: 'center' },
-    recordingActive: { borderColor: 'red', transform: [{ scale: 1.1 }] },
-    innerRecordCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'red' },
-    instruction: { color: 'white', marginTop: 15, fontWeight: 'bold', letterSpacing: 1 },
-    backBtn: { position: 'absolute', top: 60, left: 20, padding: 10 },
-    formContainer: { flex: 1, backgroundColor: '#fff' },
-    previewVideo: { width: '100%', height: '45%' },
-    inputSection: { padding: 20 },
-    label: { fontSize: 16, fontWeight: 'bold', marginBottom: 8, marginTop: 15 },
-    input: { borderWidth: 1, borderColor: '#ddd', padding: 15, borderRadius: 12, fontSize: 16 },
-    chipContainer: { flexDirection: 'row', gap: 10, marginBottom: 25 },
-    chip: { paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#f0f0f0', borderRadius: 20 },
-    activeChip: { backgroundColor: '#8a2be2' },
-    submitButton: { backgroundColor: '#8a2be2', padding: 18, borderRadius: 15, alignItems: 'center', minHeight: 60, justifyContent: 'center' },
-    buttonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    recordingActive: { borderColor: '#a349a4', transform: [{ scale: 1.1 }] },
+    innerRecordCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#a349a4' },
+    instruction: { color: 'white', marginTop: 15, fontWeight: '900', letterSpacing: 1 },
+    backBtn: { alignSelf: 'flex-start', marginLeft: 20, marginTop: 10 },
+    cancelText: { color: 'white', fontWeight: '900', fontSize: 14 },
+    formContainer: { flex: 1, backgroundColor: '#000' },
+    previewVideo: { width: '100%', height: '40%' },
+    inputSection: { padding: 25 },
+    label: { fontSize: 12, fontWeight: '900', color: '#a349a4', marginBottom: 8, marginTop: 15, letterSpacing: 1 },
+    input: { backgroundColor: '#111', color: '#fff', padding: 15, borderRadius: 10, fontSize: 16, borderWeight: 1, borderColor: '#222' },
+    chipContainer: { flexDirection: 'row', gap: 10, marginBottom: 20, marginTop: 10 },
+    chip: { paddingVertical: 8, paddingHorizontal: 15, backgroundColor: '#111', borderRadius: 20, borderWidth: 1, borderColor: '#333' },
+    activeChip: { backgroundColor: '#a349a4', borderColor: '#a349a4' },
+    chipText: { color: '#666', fontWeight: 'bold' },
+    submitButton: { backgroundColor: '#a349a4', padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 10 },
+    buttonText: { color: 'white', fontWeight: '900', fontSize: 16, fontStyle: 'italic' },
+    reRecordText: { textAlign: 'center', color: '#666', fontWeight: 'bold', fontSize: 12 },
     rebuttalInfo: { alignItems: 'center', marginVertical: 40 },
-    rebuttalTitle: { fontSize: 24, fontWeight: 'bold', color: '#000' },
-    successContainer: { flex: 1, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', padding: 30 },
+    rebuttalTitle: { fontSize: 24, fontWeight: '900', color: '#fff', fontStyle: 'italic' },
+    successContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 40 },
     giantEmoji: { fontSize: 80, marginBottom: 20 },
-    header: { fontSize: 28, fontWeight: 'bold' },
-    subtext: { textAlign: 'center', color: '#666', marginVertical: 20, fontSize: 16 },
-    finalButton: { backgroundColor: '#000', padding: 18, borderRadius: 15, width: '100%', alignItems: 'center' },
+    successHeader: { fontSize: 28, fontWeight: '900', color: '#fff', fontStyle: 'italic' },
+    successSubtext: { textAlign: 'center', color: '#666', marginVertical: 20, fontSize: 16 },
+    subtext: { textAlign: 'center', color: '#666', marginTop: 10 },
+    finalButton: { backgroundColor: '#fff', padding: 18, borderRadius: 12, width: '100%', alignItems: 'center' },
 });

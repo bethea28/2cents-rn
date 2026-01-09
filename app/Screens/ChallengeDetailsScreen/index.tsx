@@ -33,7 +33,7 @@ export const ChallengeDetailsScreen = ({ route, navigation }) => {
             Alert.alert("Error", "Could not accept challenge.");
         }
     };
-
+    console.log('KEV SAM', story)
     return (
         <View style={styles.container}>
             <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
