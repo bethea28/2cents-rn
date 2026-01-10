@@ -55,8 +55,31 @@ export function RegistrationScreen() {
       setProfileImage(result.assets[0].uri);
     }
   };
-
   const onSubmit = async (data: any) => {
+    // 1. Get the Firebase User (who is already authenticated via Google)
+    const firebaseUser = auth.currentUser;
+
+    if (!firebaseUser) return;
+
+    const formData = new FormData();
+    formData.append('uid', firebaseUser.uid); // Use the Google UID as the key
+    formData.append('username', data.username.trim());
+    formData.append('email', firebaseUser.email); // Google already verified this!
+
+    // ... rest of your image logic ...
+
+    try {
+      // Use a "Create or Update Profile" API endpoint instead of "Register"
+      await updateProfileInDB(formData).unwrap();
+
+      // Success! Move to Feed
+      dispatch(setUserState(firebaseUser));
+    } catch (err) {
+      setErrorMessage("Handle already taken!");
+    }
+  };
+
+  const onSubmitTraditionsl = async (data: any) => {
     setErrorMessage("");
     const formData = new FormData();
     formData.append('username', data.username.trim());

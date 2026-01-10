@@ -19,13 +19,15 @@ import { useDispatch } from "react-redux";
 
 // Your existing logic imports (UNCHANGED)
 import { setUserState } from "@/store/globalState/globalState";
-import { useAuthLoginMutation } from "@/store/api/api";
+import { useAuthLoginMutation, useAuthRegisterMutation } from "@/store/api/api";
 import { login } from "@/store/authReducer";
 import { authTokenStore } from "@/app/customHooks";
 
 export function LoginScreen({ navigation }: any) {
     const dispatch = useDispatch();
-    const [loginApi, { isLoading }] = useAuthLoginMutation();
+    // const [loginApi, { isLoading }] = useAuthLoginMutation();
+    const [register, { isLoading }] = useAuthRegisterMutation();
+
     const [errorMessage, setErrorMessage] = useState("");
 
     const {

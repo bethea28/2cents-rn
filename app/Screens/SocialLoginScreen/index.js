@@ -20,11 +20,15 @@ import { setUser, clearUser } from "@/store/authSlice"; // Adjust path to where 
 // import { useAppDispatch } from "@/store/hooks";
 import { useSelector } from "react-redux";
 import { useDispatch, } from "react-redux";
+import { useAuthRegisterMutation } from "@/store/api/api";
 
 export function SocialLoginScreen({ navigation }) {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [register] = useAuthRegisterMutation();
+
   const dispatch = useDispatch()
+  // const [loginApi, { isLoading }] = useAuthLoginMutation();
 
 
   const handleGoogleLogin = async () => {
@@ -51,14 +55,23 @@ export function SocialLoginScreen({ navigation }) {
 
       const userCredential = await signInWithCredential(auth, credential);
       const user = userCredential.user;
+      console.log('ALL USER', user.uid)
+      const formData = new FormData();
+      formData.append('uid', user.uid);
+      formData.append('email', user.email.toLowerCase().trim());
+      formData.append('photoUrl', user.photoURL);
+      formData.append('displayName', user.displayName);
+      const done = await register(formData).unwrap();
 
       // ✅ The "Honest" Dispatch: Update Redux with the Firebase user data
+
       dispatch(setUser({
         uid: user.uid,
         email: user.email,
         displayName: user.displayName,
         photoURL: user.photoURL
       }));
+
 
 
     } catch (error) {
