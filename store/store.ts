@@ -11,78 +11,49 @@ import {
   REHYDRATE,
 } from "redux-persist";
 import { RESET_STORE_ACTION } from "./actions";
-import { pokemonApi } from "./pokemonTestApi/pokemonTestApi";
+import authSlice from "./authSlice"; // Use the one we created earlier
 import { counterSlice } from "./globalState/globalState";
-// import { legacyApi, rtkQueryErrorLogger } from './legacyApi';
-// import { settingsReducer } from './settings';
-// import { systemReducer } from './system';
 import { userReducer } from "./userReducer";
 import { testReducer } from "./testReducer";
-import authSlice from "./authReducer";
-// import { modalsReducer } from './modals';
 import { api } from "./api/api";
-// import { authMiddleware } from "./middleWare/authMiddleware";
-console.log("TEST AUTGH NOW", authSlice);
-// import { robustaReducer } from './robusta';
-const reducer = combineReducers({
+// import { pokemonApi } from "./api/pokemonApi"; // Ensure this is imported if used
+
+const rootReducer = combineReducers({
   user: userReducer,
-  testReducer,
-  //   settings: settingsReducer,
-  //   modals: modalsReducer,
-  //   system: systemReducer,
-  //   robusta: robustaReducer,
-  //   [legacyApi.reducerPath]: legacyApi.reducer,
+  test: testReducer,
+  auth: authSlice,
   [counterSlice.reducerPath]: counterSlice.reducer,
   [api.reducerPath]: api.reducer,
-  [authSlice.reducerPath]: authSlice.reducer,
-  [pokemonApi.reducerPath]: pokemonApi.reducer,
-  // [api.reducerPath]: api.reducer,
+  // [pokemonApi.reducerPath]: pokemonApi.reducer, // Uncomment if you actually have this
 });
 
-// on the root level persisted only "settings" state
 const persistedReducer = persistReducer(
   {
     key: "root",
     storage: AsyncStorage,
-    whitelist: ["settings", "user"], // we perist the settings reducer
+    whitelist: ["settings", "user", "auth"], // PERSIST AUTH to keep user logged in
   },
-  reducer
+  rootReducer
 );
 
-const rootReducer: typeof persistedReducer = (state, action) => {
+const resettableRootReducer: typeof persistedReducer = (state, action) => {
   if (action.type === RESET_STORE_ACTION.type) {
-    AsyncStorage.removeItem("persist:root").catch(() => {});
-
+    AsyncStorage.removeItem("persist:root").catch(() => { });
     return persistedReducer(undefined, action);
   }
   return persistedReducer(state, action);
 };
 
-const additionalMiddleware: Middleware[] = [];
-
-// if (__DEV__) {
-//   // eslint-disable-next-line import/no-extraneous-dependencies
-//   const createDebugger = require('redux-flipper').default;
-//   additionalMiddleware.push(createDebugger());
-// }
-
 export const store = configureStore({
-  reducer: rootReducer,
-  middleware: (getDefaultMiddleware) => [
-    ...getDefaultMiddleware({
+  reducer: resettableRootReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
       serializableCheck: {
+        // Firebase and Persist actions often contain non-serializable data
         ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
+        serializableCheck: false, // Recommended for Firebase integrations
       },
-    }),
-    // legacyApi.middleware,
-    api.middleware,
-    pokemonApi.middleware,
-    // authSlice.middleWare,
-    // counterSlice.middleware,
-    // rtkQueryErrorLogger,
-    ...additionalMiddleware,
-    // authMiddleware, // Here is where you add your authMiddleware
-  ],
+    }).concat(api.middleware),
 });
 
 export const persistor = persistStore(store);

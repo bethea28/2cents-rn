@@ -1,3 +1,10 @@
+
+
+
+
+
+
+
 import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Text, Pressable } from "react-native";
 import { Provider, useDispatch, useSelector } from "react-redux";
@@ -16,6 +23,7 @@ import { increment } from "@/store/globalState/globalState";
 // Screen Imports
 import { RegistrationScreen } from "./Screens/RegistrationScreen";
 import { LoginScreen } from './Screens/LoginScreen';
+import { SocialLoginScreen } from './Screens/SocialLoginScreen';
 import { HomeScreen } from "./Screens/HomeScreen";
 import { ProfileScreen } from "./Screens/ProfileScreen";
 import { ChallengesScreen } from "./Screens/ChallengesScreen";
@@ -27,9 +35,16 @@ import { ChallengeDetailsScreen } from "./Screens/ChallengeDetailsScreen";
 import { InfoScreen } from "./Screens/InfoScreen";
 import { BusinessHours } from "./Screens/BusinessHours";
 import { AddReviewScreen } from "./Screens/AddReviewScreen";
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 const BottomTab = createBottomTabNavigator();
 const StackNav = createNativeStackNavigator();
+
+
+GoogleSignin.configure({
+  webClientId: process.env.EXPO_PUBLIC_WEB_CLIENT_ID, // From your .env
+  offlineAccess: true,
+});
 
 // --- TABS (The "Arena" Inner Sanctum) ---
 function MyBottomTabs() {
@@ -95,25 +110,27 @@ function RootStack() {
 // --- MAIN APP COMPONENT ---
 function MainApp() {
   const dispatch = useDispatch();
-  const userAuth = useSelector((state: any) => state.auth.user);
+  const userAuth = useSelector((state: any) => state.auth);
 
   useEffect(() => {
     dispatch(increment({ value: 20 }));
-    console.log("Current User Auth Status:", userAuth);
+    // console.log("Current User Auth Status:", userAuth.user.uid);
   }, [dispatch, userAuth]);
 
   // 🛡️ STAFF TIP: Remove <NavigationContainer> here. 
   // Expo Router / Root Layout already provides one.
+  console.log('SIGN IN NOW', userAuth)
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
-      {userAuth?.userId ? (
+      {userAuth?.user ? (
         /* Show the Arena */
         <RootStack />
       ) : (
         /* Show the Auth Stack */
         <StackNav.Navigator screenOptions={{ headerShown: false }}>
-          <StackNav.Screen name="Registration" component={RegistrationScreen} />
-          <StackNav.Screen name="Login" component={LoginScreen} />
+          {/* <StackNav.Screen name="Registration" component={RegistrationScreen} /> */}
+          {/* <StackNav.Screen name="Login" component={LoginScreen} /> */}
+          <StackNav.Screen name="SocialLogin" component={SocialLoginScreen} />
         </StackNav.Navigator>
       )}
     </View>

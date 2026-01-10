@@ -1,26 +1,27 @@
 {
   "expo": {
-    "name": "RN-STARTER",
-    "slug": "RN-STARTER",
+    "name": "2Cents",
+    "slug": "2cents-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
-    "userInterfaceStyle": "automatic",
+    "scheme": "twocents",
     "newArchEnabled": true,
+    "iosUrlScheme": "com.googleusercontent.apps.812679289010-a1os4021hbvflsdp0mho5nm0q21o58gq",
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.bethea28.rn-starter",
+      "supportsTablet": false,
+      "bundleIdentifier": "com.bethea28.twocents",
+      "usesAppleSignIn": true,
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "NSCameraUsageDescription": "This app uses the camera to record stories.",
-        "NSPhotoLibraryUsageDescription": "This app needs access to the photo library to select photos.",
-        "NSMicrophoneUsageDescription": "This app needs access to the microphone to record audio for your stories.",
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
-        }
+        "NSCameraUsageDescription": "2Cents needs the camera to record your challenges.",
+        "NSMicrophoneUsageDescription": "2Cents needs the microphone for your rebuttals.",
+        "NSPhotoLibraryUsageDescription": "2Cents needs access to save your videos."
       }
     },
     "android": {
+      "package": "com.bethea28.twocents", // MUST start with a letter
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -30,27 +31,45 @@
         "RECORD_AUDIO",
         "READ_MEDIA_IMAGES",
         "READ_MEDIA_VIDEO"
-      ],
-      "package": "com.bethea28.rnstarter"
+      ]
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "@react-native-firebase/messaging",
       [
-        "expo-camera",
+        "@react-native-google-signin/google-signin",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
-          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone"
+          "iosUrlScheme": "com.googleusercontent.apps.REPLACE_WITH_YOUR_ID"
         }
       ],
       [
-        "expo-splash-screen",
+        "expo-camera",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "cameraPermission": "Allow 2Cents to access your camera",
+          "microphonePermission": "Allow 2Cents to access your microphone"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "gradleVersion": "8.13",
+            "kotlinVersion": "2.0.0"
+          },
+          "ios": {
+            "useStaticFrameworks": true
+          }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b2287a9e-7279-4a1e-a5d3-d15e9874493d"
+      }
+    }
   }
 }
