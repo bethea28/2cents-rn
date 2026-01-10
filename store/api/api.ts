@@ -160,7 +160,7 @@ export const api = createApi({
     }),
 
     updateStoryStatus: build.mutation({
-      query: ({ id, ...patch }) => ({
+      query: ({ id, ...patch }) => console.log('test me update', id, patch) || ({
         url: `/stories/${id}`,
         method: "PATCH",
         body: patch,

@@ -1,15 +1,17 @@
 import React from 'react';
-import { View, FlatList, Text, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
-import { useGetAllPendingStoriesQuery } from "@/store/api/api";
+import { View, FlatList, Text, TouchableOpacity, ActivityIndicator, RefreshControl, StyleSheet } from 'react-native';
+import { useGetAllPendingStoriesQuery, useUpdateStoryStatusMutation } from "@/store/api/api";
 import { useSelector } from "react-redux";
 import { formatDistanceToNow } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import { VideoPlayerPlayback } from '../../Components/VideoPlayerPlayback';
+import * as Haptics from 'expo-haptics';
 
 export const ChallengesScreen = ({ navigation }) => {
     const userState = useSelector((state) => state.counter.userState);
     const currentUserId = userState?.userId;
 
+    // 🛡️ API Hooks
     const {
         data: stories,
         isLoading,
@@ -17,7 +19,29 @@ export const ChallengesScreen = ({ navigation }) => {
         isFetching
     } = useGetAllPendingStoriesQuery(currentUserId);
 
-    // Initial load: Full screen spinner
+    const [updateStoryStatus] = useUpdateStoryStatusMutation();
+
+    // 🛡️ Staff Engineer: Centralized Navigation & Receipt Logic
+    const handleChallengePress = (item) => {
+        const isTheChallenger = item.sideAAuthorId === currentUserId;
+        const isSideB = !isTheChallenger;
+        const hasNotBeenViewedByMe = !item.sideBViewedAt;
+
+        // Trigger Haptic for tactile feedback
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+        // 🛡️ FIRE AND FORGET: Update "Side B" viewed timestamp silently
+        if (isSideB && hasNotBeenViewedByMe) {
+            updateStoryStatus({
+                id: item.id,
+                sideBViewedAt: new Date().toISOString(),
+            });
+            // We do NOT await here; navigation should be instant
+        }
+
+        navigation.navigate('ChallengeDetailsScreen', { story: item });
+    };
+
     if (isLoading && !isFetching) {
         return (
             <View style={styles.loadingFull}>
@@ -29,7 +53,6 @@ export const ChallengesScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            {/* 🛡️ REFRESH MESSAGE: Only shows when the user pulls down */}
             {isFetching && (
                 <View style={styles.refreshMessageContainer}>
                     <ActivityIndicator size="small" color="#FF3B30" style={{ marginRight: 10 }} />
@@ -50,15 +73,11 @@ export const ChallengesScreen = ({ navigation }) => {
                 }
                 renderItem={({ item }) => {
                     const isAwaitingAcceptance = item.status === 'pending-acceptance';
-                    // const isTheChallenger = item.sideAAuthorId === currentUserId;
-                    // Inside renderItem
                     const isTheChallenger = item.sideAAuthorId === currentUserId;
-                    const statusLabel = item.status === 'pending-acceptance'
-                        ? (isTheChallenger ? "WAITING FOR ACCEPTANCE" : "ACTION REQUIRED: ACCEPT?")
-                        : (isTheChallenger ? "THEY ARE RECORDING..." : "ACTION REQUIRED: RECORD REBUTTAL");
+
                     return (
                         <TouchableOpacity
-                            onPress={() => !isTheChallenger && navigation.navigate('ChallengeDetailsScreen', { story: item })}
+                            onPress={() => handleChallengePress(item)}
                             disabled={isTheChallenger}
                             style={[
                                 styles.card,
@@ -115,7 +134,6 @@ export const ChallengesScreen = ({ navigation }) => {
         </View>
     );
 };
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
