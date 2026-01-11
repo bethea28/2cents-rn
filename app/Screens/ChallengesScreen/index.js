@@ -8,9 +8,9 @@ import { VideoPlayerPlayback } from '../../Components/VideoPlayerPlayback';
 import * as Haptics from 'expo-haptics';
 
 export const ChallengesScreen = ({ navigation }) => {
-    const userState = useSelector((state) => state.counter.userState);
-    const currentUserId = userState?.userId;
-
+    const userState = useSelector((state) => state.auth.user.user);
+    const currentUserId = userState?.id;
+    console.log('user state', currentUserId)
     // 🛡️ API Hooks
     const {
         data: stories,
@@ -50,7 +50,7 @@ export const ChallengesScreen = ({ navigation }) => {
             </View>
         );
     }
-
+    console.log('where the stories', stories)
     return (
         <View style={styles.container}>
             {isFetching && (

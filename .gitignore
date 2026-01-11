@@ -8,26 +8,33 @@ web-build/
 expo-env.d.ts
 .metro-health-check*
 
-# 🛡️ THE SECURITY SHIELD (Crucial)
+# 🛡️ THE SECURITY SHIELD
 .env
 .env.*
 !.env.example
-google-services.json
+# Track this specific file for EAS, but ignore other root jsons
+!google-services.json
 ios/GoogleService-Info.plist
 
-# 🛡️ THE NATIVE SHIELD 
-# (Since you ran 'run:android', ignore these generated folders)
-android/
-ios/
+# 🛡️ THE NATIVE SHIELD
+# We ignore the heavy build folders, but NOT the android/ folder itself
+android/build/
+android/.gradle/
+android/app/build/
+android/local.properties
+# We keep the keystore for consistent signing across machines
+!android/app/debug.keystore
 
-# Native Keys & Certificates
+# Specifically ensure google-services.json is tracked in its native home
+!android/app/google-services.json
+
+# Native Keys & Certificates (Keep these rules)
 *.orig.*
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
-*.keystore
 
 # debug & logs
 npm-debug.*

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "812679289010",
+    "project_id": "cents-fe1c4",
+    "storage_bucket": "cents-fe1c4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:812679289010:android:275f29b56e363d306551ab",
+        "android_client_info": {
+          "package_name": "com.bethea28.twocents"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCJXlaTkwAsC4m7CFBG3W_jksyKAVLUAx8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

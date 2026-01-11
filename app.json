@@ -20,7 +20,7 @@
       }
     },
     "android": {
-      "package": "com.bethea28.twocents", // MUST start with a letter
+      "package": "com.bethea28.twocents",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",

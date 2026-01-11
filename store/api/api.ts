@@ -4,11 +4,10 @@ import authSlice from "../authReducer";
 
 /**
  * 🛡️ STAFF ENGINEER: SINGLE SOURCE OF TRUTH
- * Change this IP here, and it updates the whole app (including refresh logic).
+ * Using the ngrok URL for remote access.
  */
-const ARENA_IP = "172.20.10.4";
-// const BASE_URL = `http://${ARENA_IP}:3000`;
 const BASE_URL = "https://unpredicting-raring-chaim.ngrok-free.dev";
+
 export const objectToUrlEncodedString = (obj: Record<string, string | number>) => {
   // @ts-ignore
   const urlEncoded = new URLSearchParams(obj);
@@ -22,9 +21,14 @@ const createMyBaseQuery = () => {
       baseUrl: BASE_URL,
       prepareHeaders: async (headers) => {
         const accessToken = await authTokenStore.getAccessToken();
+        console.log('PASSING THE ACCESS TOKEN', accessToken)
         if (accessToken) {
           headers.set("Authorization", `Bearer ${accessToken}`);
         }
+
+        // 🛡️ CRITICAL: This bypasses the ngrok "Browser Warning" page 
+        // that causes "JSON Parse Error" in React Native.
+        headers.set("ngrok-skip-browser-warning", "true");
         return headers;
       },
     });
@@ -39,11 +43,11 @@ const createMyBaseQuery = () => {
 
       if (refreshToken) {
         try {
-          // 🛡️ STAFF ENGINEER: Using BASE_URL constant to avoid IP mismatches
           const refreshResult = await fetch(`${BASE_URL}/auth/refresh`, {
             method: "POST",
             headers: {
               "Content-Type": "application/x-www-form-urlencoded",
+              "ngrok-skip-browser-warning": "true", // Header needed here too
             },
             body: objectToUrlEncodedString({ refreshToken }),
           });
@@ -84,13 +88,24 @@ export const api = createApi({
   tagTypes: ["stories", "comments"],
   endpoints: (build) => ({
     // --- 🔐 AUTH ENDPOINTS ---
+
+    // 🛡️ NEW: Google Sync (Handles both login and registration)
+    googleSync: build.mutation<any, any>({
+      query: (userData) => console.log('google syncing DONNY', userData) || ({
+        url: "/auth/google-sync",
+        method: "POST",
+        body: userData, // Sends as clean JSON
+      }),
+    }),
+
     authLogin: build.mutation<any, FormData>({
       query: (formData) => ({
-        url: "/auth/login", // 🛡️ Added leading slash for safety
+        url: "/auth/login",
         method: "POST",
         body: formData,
       }),
     }),
+
     authRegister: build.mutation<any, FormData>({
       query: (formData) => ({
         url: "/auth/register",
@@ -109,7 +124,7 @@ export const api = createApi({
     }),
 
     getAllPendingStories: build.query({
-      query: (userId) => ({
+      query: (userId) => console.log('this is user id pending stories', userId) || ({
         url: `/stories/${userId}/getAllPendingStories`,
         method: "GET",
       }),
@@ -120,18 +135,16 @@ export const api = createApi({
     }),
 
     getAllCompleteStories: build.query({
-      // 🛡️ Pass 'userId' as an argument here
-      query: (userId) => console.log('hey') || ({
+      query: (userId) => ({
         url: `/stories/getAllCompleteStories`,
         method: "GET",
-        // 🛡️ 'params' automatically turns { userId: 123 } into ?userId=123
         params: userId ? { userId } : {},
       }),
       providesTags: ['stories'],
     }),
 
     createStory: build.mutation<any, FormData>({
-      query: (formData) => ({
+      query: (formData) => console.log('CREATING STORY NOW', formData) || ({
         url: "/stories/createStory",
         method: "POST",
         body: formData,
@@ -160,7 +173,7 @@ export const api = createApi({
     }),
 
     updateStoryStatus: build.mutation({
-      query: ({ id, ...patch }) => console.log('test me update', id, patch) || ({
+      query: ({ id, ...patch }) => ({
         url: `/stories/${id}`,
         method: "PATCH",
         body: patch,
@@ -210,25 +223,16 @@ export const api = createApi({
       }),
       invalidatesTags: [{ type: 'comments', id: 'LIST' }],
     }),
-
-    // --- 🧪 EXPERIMENTAL/LEGACY ENDPOINTS ---
-    getWeather: build.query<any, void>({
-      queryFn: async () => {
-        const req = await fetch("https://api.escuelajs.co/api/v1/products");
-        const resp = await req.json();
-        return { data: resp };
-      },
-    }),
   }),
   refetchOnMountOrArgChange: true,
 });
 
 export const {
+  useGoogleSyncMutation, // 🛡️ Export this for SocialLoginScreen
   useGetStoryByIdQuery,
   useGetAllPendingStoriesQuery,
   useGetAllCompleteStoriesQuery,
   useGetCommentsQuery,
-  useGetWeatherQuery,
   useAuthLoginMutation,
   useAuthRegisterMutation,
   useCreateStoryMutation,

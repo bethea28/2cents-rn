@@ -15,6 +15,7 @@ import { useGetAllCompleteStoriesQuery } from "@/store/api/api";
 import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import * as Haptics from 'expo-haptics'; // 🛡️ Fixes the line 31 crash
+import { VideoPlayerPlayback } from '../../Components/VideoPlayerPlayback';
 
 const { height } = Dimensions.get('window');
 
@@ -55,13 +56,18 @@ const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
 
             <View style={styles.versusArena}>
                 <Pressable onPress={handleNavigate} style={styles.videoStack}>
-                    <Video
+                    {/* <Video
                         source={{ uri: item.sideAVideoUrl }}
                         style={StyleSheet.absoluteFill}
                         resizeMode={ResizeMode.COVER}
                         shouldPlay={isActive}
                         isLooping
                         isMuted={isAppMuted || !isActive || audioFocus !== 'A'}
+                    /> */}
+                    <VideoPlayerPlayback
+                        videoSource={item.sideAVideoUrl}
+                        isMuted={true}
+                        style={StyleSheet.absoluteFill}
                     />
                     <Pressable
                         style={[styles.topLabelContainer, audioFocus === 'A' && styles.activeAudioLabel]}
