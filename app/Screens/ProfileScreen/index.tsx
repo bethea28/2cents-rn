@@ -57,7 +57,7 @@ export const ProfileScreen = () => {
   const navigation = useNavigation();
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  const user = useSelector((state: any) => state.counter.userState);
+  const user = useSelector((state: any) => state.auth);
   const currentUserId = user?.userId;
 
   const { data: stories, isLoading } = useGetAllCompleteStoriesQuery(currentUserId);
@@ -65,7 +65,7 @@ export const ProfileScreen = () => {
   const renderStoryItem = ({ item }: { item: any }) => (
     <VideoCard item={item} navigation={navigation} />
   );
-
+  console.log('johnny', user.user.user.username)
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -73,7 +73,7 @@ export const ProfileScreen = () => {
           <Image style={styles.avatar} source={{ uri: user?.profilePic || "https://via.placeholder.com/150" }} />
         </View>
         <View style={styles.identity}>
-          <Text style={styles.username}>{user?.userName?.toUpperCase() || "FIGHTER"}</Text>
+          <Text style={styles.username}>{user?.user?.user?.username?.toUpperCase() || "FIGHTER"}</Text>
           <Text style={styles.bio}>Arena Veteran • {stories?.length || 0} Battles</Text>
         </View>
       </View>

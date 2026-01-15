@@ -170,7 +170,7 @@ export const StoriesFeed = () => {
                 </Pressable>
             </View>
 
-            <FlatList
+            {/* <FlatList
                 data={stories}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => (
@@ -190,7 +190,7 @@ export const StoriesFeed = () => {
                 initialNumToRender={2}
                 maxToRenderPerBatch={2}
                 windowSize={3}
-            />
+            /> */}
         </SafeAreaView>
     );
 };

@@ -7,6 +7,7 @@ import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo
 import { Audio, Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useCreateStoryMutation, useHandleStoryRebuttalMutation } from "@/store/api/api";
+import Toast from 'react-native-toast-message'
 
 export default function CreateStoryModal({ visible, onClose, storyId = null, mode = 'new' }) {
     // --- PERMISSIONS & API ---
@@ -129,6 +130,10 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
                 await createStory(formData).unwrap();
             }
             if (videoRef.current) await videoRef.current.unloadAsync();
+            Toast.show({
+                type: 'success',
+                text1: mode === 'rebuttal' ? 'Rebuttal sent successfully' : 'Story sent successfully'
+            });
             setStep(3);
         } catch (err) {
             Alert.alert("Upload Failed", "Error uploading beef.");

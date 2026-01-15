@@ -12,6 +12,7 @@ import BottomSheet, {
     BottomSheetTextInput,
     BottomSheetFooter
 } from '@gorhom/bottom-sheet';
+import Toast from 'react-native-toast-message'
 
 // Custom Components & API
 import { CommentItem } from '../../Components/CommentItem';
@@ -34,8 +35,12 @@ const CommentInput = memo(({ replyTarget, setReplyTarget, onSend, isPosting }) =
     const [text, setText] = useState('');
     const handleInternalSend = () => {
         if (!text.trim() || isPosting) return;
-        onSend(text);
+        onSend(text)
         setText('');
+        Toast.show({
+            type: 'success',
+            text1: "Comment sent successfully"
+        });
     };
     return (
         <View style={styles.stickyFooter}>
@@ -111,7 +116,14 @@ export const FullStoryScreen = ({ route, navigation }) => {
         setTimeout(() => setVoteMessage(null), 1500);
         try { await castVote({ storyId: story.id, side }).unwrap(); } catch (err) { }
     };
-
+    const onLike = (id) => {
+        console.log('like test chris', id)
+        toggleCommentLike({ commentId: id })
+        Toast.show({
+            type: 'success',
+            text1: "Like sent successfully"
+        });
+    }
     useEffect(() => {
         if (!story) return;
         const totalVotes = (story.challengerVotes || 0) + (story.rebuttalVotes || 0);
@@ -242,7 +254,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
                             <CommentItem
                                 comment={item}
                                 onReply={() => setReplyTarget({ id: item.id, username: item.author?.username, rootId: null })}
-                                onLike={() => toggleCommentLike({ commentId: item.id })}
+                                onLike={() => onLike(item.id)}
                             />
                             {item.replies?.map(reply => (
                                 <CommentItem key={reply.id} comment={reply} isReply={true} onReply={() => setReplyTarget({ id: reply.id, username: reply.author?.username, rootId: item.id })} onLike={() => toggleCommentLike({ commentId: reply.id })} />

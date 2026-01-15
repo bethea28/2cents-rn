@@ -30,19 +30,18 @@
         "CAMERA",
         "RECORD_AUDIO",
         "READ_MEDIA_IMAGES",
-        "READ_MEDIA_VIDEO"
+        "READ_MEDIA_VIDEO",
+        "POST_NOTIFICATIONS"
       ]
     },
     "plugins": [
       "expo-router",
       "expo-apple-authentication",
-      "@react-native-firebase/app",
-      "@react-native-firebase/auth",
-      "@react-native-firebase/messaging",
+      "expo-notifications",
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.REPLACE_WITH_YOUR_ID"
+          "iosUrlScheme": "com.googleusercontent.apps.812679289010-a1os4021hbvflsdp0mho5nm0q21o58gq"
         }
       ],
       [

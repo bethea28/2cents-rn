@@ -85,7 +85,7 @@ const createMyBaseQuery = () => {
 export const api = createApi({
   reducerPath: "api",
   baseQuery: createMyBaseQuery(),
-  tagTypes: ["stories", "comments"],
+  tagTypes: ["stories", "comments", "pushToken"],
   endpoints: (build) => ({
     // --- 🔐 AUTH ENDPOINTS ---
 
@@ -105,7 +105,24 @@ export const api = createApi({
         body: formData,
       }),
     }),
+    // --- 🥩 PUSH NOTIFICATION ENDPOINTS ---
 
+    registerPushToken: build.mutation({
+      query: (data) => ({
+        url: '/pushNotifications/register', // 🛡️ STAFF FIX: Added the base path
+        method: 'POST',
+        body: data, // { userId, token }
+      }),
+      invalidatesTags: ['pushToken'],
+    }),
+
+    sendTestPush: build.mutation({
+      query: (data) => ({
+        url: '/pushNotifications/send-test', // 🛡️ STAFF FIX: Added the base path
+        method: 'POST',
+        body: data, // { userId }
+      }),
+    }),
     authRegister: build.mutation<any, FormData>({
       query: (formData) => ({
         url: "/auth/register",
@@ -228,6 +245,8 @@ export const api = createApi({
 });
 
 export const {
+  useRegisterPushTokenMutation, // 🥩 ADD THIS
+  useSendTestPushMutation,     // 🥩 ADD THIS
   useGoogleSyncMutation, // 🛡️ Export this for SocialLoginScreen
   useGetStoryByIdQuery,
   useGetAllPendingStoriesQuery,
