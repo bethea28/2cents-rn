@@ -21,6 +21,7 @@
     },
     "android": {
       "package": "com.bethea28.twocents",
+      "largeHeap": true,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -38,6 +39,13 @@
       "expo-router",
       "expo-apple-authentication",
       "expo-notifications",
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": true,
+          "supportsPictureInPicture": true
+        }
+      ],
       [
         "@react-native-google-signin/google-signin",
         {

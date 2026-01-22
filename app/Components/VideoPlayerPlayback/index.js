@@ -1,55 +1,49 @@
 // Components/VideoPlayerPlayback.js
-import React, { memo, useEffect, useRef } from 'react';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import React, { memo, useEffect } from 'react';
+import { useVideoPlayer, VideoView, useEvent } from 'expo-video';
 
 export const VideoPlayerPlayback = memo(({
     videoSource,
     style,
     isMuted = true,
+    paused = false, // 🛡️ Added to allow the feed to pause background videos
     onLoad
 }) => {
-    const hasTriggeredLoad = useRef(false);
-
     const player = useVideoPlayer(videoSource, (p) => {
         p.loop = true;
         p.muted = isMuted;
-        p.play();
+        if (!paused) p.play();
     });
 
+    // 🛡️ ENGINEER: useEvent is the modern, "Safe" way to track status without leaks
+    const { status } = useEvent(player, 'statusChange', { status: player.status });
+
     useEffect(() => {
-        console.log("🎬 Video Player Effect Mounted");
-
-        // 1. Check current status immediately (in case it loaded before the listener attached)
-        if (player.status === 'readyToPlay' && !hasTriggeredLoad.current) {
-            console.log("🎯 Already ready! Firing onLoad...");
-            hasTriggeredLoad.current = true;
+        if (status === 'readyToPlay') {
             onLoad?.();
+            if (!paused) player.play();
         }
+    }, [status, paused, player, onLoad]);
 
-        // 2. Listen for the change
-        const subscription = player.addListener('statusChange', (statusObj) => {
-            // 🛠 ENGINEER: Access the .status property from the object
-            const currentStatus = statusObj.status;
-            console.log("🎥 Player Status Changed To:", currentStatus);
-
-            if (currentStatus === 'readyToPlay' && !hasTriggeredLoad.current) {
-                console.log("🎯 Hit readyToPlay! Firing onLoad...");
-                hasTriggeredLoad.current = true;
-                onLoad?.();
-            }
-        });
-
-        return () => {
-            console.log("🗑 Cleaning up video listener");
-            subscription.remove();
-        };
-    }, [player, onLoad]); // ⚠️ Remove videoSource from here to prevent unnecessary remounts
+    // 🛡️ Sync paused/muted props from the parent
+    useEffect(() => {
+        player.muted = isMuted;
+        if (paused) {
+            player.pause();
+        } else {
+            player.play();
+        }
+    }, [isMuted, paused, player]);
 
     return (
         <VideoView
             player={player}
             style={style}
             contentFit="cover"
+            // 🛡️ CRITICAL SAMSUNG FIX: 
+            // TextureView is required for stable rendering in lists on Galaxy S8/S21
+            nativeViewType="textureView"
+            nativeControls={false}
         />
     );
 });
