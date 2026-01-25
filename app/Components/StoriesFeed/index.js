@@ -1,7 +1,8 @@
 import * as React from "react";
 import {
-    View, StyleSheet, Text, ActivityIndicator,
-    SafeAreaView, Pressable, Image, Dimensions
+    View, Text, ActivityIndicator,
+    SafeAreaView, Pressable, Image, Dimensions,
+    StyleSheet
 } from "react-native";
 import { useNavigation, useIsFocused } from "@react-navigation/native";
 import { FlashList } from "@shopify/flash-list";
@@ -17,24 +18,26 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
     const navigation = useNavigation();
 
-    // 1. 🛡️ Initialize player: Null-gate when inactive to save S8 RAM
+    // 1. 🛡️ MEMORY SAFETY GATE
+    // We return to 'null' when inactive. This is the only way to prevent 
+    // the "Process Terminated" crash on emulators during long scrolls.
     const player = useVideoPlayer(isActive ? item.sideAVideoUrl : null, (p) => {
         if (!p) return;
         p.loop = true;
         p.muted = isAppMuted;
         p.volume = 1.0;
-        p.audioMixingMode = 'doNotMix'; // 🛡️ Overtake Spotify
+        p.audioMixingMode = 'doNotMix';
+        p.play();
     });
 
-    // 2. 🛡️ Explicit Play Trigger
-    // Sometimes the callback above doesn't fire fast enough on emulators
+    // 2. 🛡️ SYNC PLAY STATE
     React.useEffect(() => {
         if (isActive && player) {
             player.play();
         }
     }, [isActive, player]);
 
-    // 3. Sync Mute State
+    // 3. SYNC MUTE STATE
     React.useEffect(() => {
         if (player) {
             player.muted = isAppMuted;
@@ -44,10 +47,9 @@ const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
     const handlePressRebuttal = () => {
         navigation.navigate("FullStoryScreen", { storyId: item.id, initialSide: 'B' });
     };
-    console.log('item now', item)
+
     return (
         <View style={styles.card}>
-            {/* --- HEADER --- */}
             <View style={styles.cardHeader}>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
@@ -61,16 +63,15 @@ const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
                 </View>
             </View>
 
-            {/* --- ARENA --- */}
             <View style={styles.versusArena}>
-                {/* 🛡️ BACKGROUND POSTER (Always visible to hide 'pop-in') */}
+                {/* 🛡️ POSTER LAYER: Always shows Profile Pic to bridge the loading gap */}
                 <Image
-                    source={{ uri: item.SideA.profilePic || item.sideAVideoUrl }}
+                    source={{ uri: item.SideA?.profilePic || item.sideAVideoUrl }}
                     style={StyleSheet.absoluteFill}
                     resizeMode="cover"
                 />
 
-                {/* 🛡️ VIDEO LAYER: Only mounts if centered */}
+                {/* 🛡️ VIDEO LAYER: Only exists when card is active */}
                 {isActive && player && (
                     <VideoView
                         style={StyleSheet.absoluteFill}
@@ -80,7 +81,6 @@ const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
                     />
                 )}
 
-                {/* --- OVERLAYS --- */}
                 <Pressable onPress={handlePressRebuttal} style={styles.rebuttalTeaser}>
                     <Image
                         source={{ uri: item.sideBThumbnailUrl || item.sideBVideoUrl }}
@@ -100,10 +100,9 @@ const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
                 </View>
             </View>
 
-            {/* --- FOOTER --- */}
-            <Pressable onPress={() => { }} style={styles.cardFooter}>
+            <View style={styles.cardFooter}>
                 <Text style={styles.footerCTA}>ENTER ARENA TO VOTE →</Text>
-            </Pressable>
+            </View>
         </View>
     );
 });
@@ -117,8 +116,11 @@ export const StoriesFeed = () => {
     const [isAppMuted, setIsAppMuted] = React.useState(false);
     const isFocused = useIsFocused();
 
+    // 🛡️ Handles which card is "Active"
     const onViewableItemsChanged = React.useRef(({ viewableItems }) => {
-        if (viewableItems.length > 0) setActiveId(viewableItems[0].item.id);
+        if (viewableItems.length > 0) {
+            setActiveId(viewableItems[0].item.id);
+        }
     }).current;
 
     if (isLoading) return <View style={styles.center}><ActivityIndicator size="large" color="#a349a4" /></View>;
@@ -131,6 +133,7 @@ export const StoriesFeed = () => {
                     <Ionicons name={isAppMuted ? "volume-mute" : "volume-high"} size={22} color="white" />
                 </Pressable>
             </View>
+
             <FlashList
                 data={stories}
                 keyExtractor={(item) => item.id.toString()}
@@ -143,27 +146,26 @@ export const StoriesFeed = () => {
                 )}
                 onViewableItemsChanged={onViewableItemsChanged}
 
-                // 🛡️ TUNING 1: Lower threshold to 30%.
-                // This triggers "isActive" as soon as the card starts sliding in.
+                // 🛡️ PIXEL 4 OPTIMIZED CONFIG
                 viewabilityConfig={{
-                    itemVisiblePercentThreshold: 30
+                    // 🛡️ CRITICAL: 15% means the video starts loading as soon 
+                    // as it peeks onto the screen. This fixes the blackout.
+                    itemVisiblePercentThreshold: 5
                 }}
-
-                // 🛡️ TUNING 2: Draw distance.
-                // This tells FlashList to render the NEXT card's code 
-                // off-screen so the network request starts early.
-                drawDistance={SCREEN_HEIGHT}
-
                 estimatedItemSize={620}
+                // 🛡️ CRITICAL: Keep windowSize at 2. 
+                // Any higher and the Pixel 4 emulator will crash.
                 windowSize={2}
+                drawDistance={0}
                 removeClippedSubviews={true}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 100 }}
+
+
             />
         </SafeAreaView>
     );
 };
-// ... Styles remain identical to your provided code ...
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#000" },
     center: { flex: 1, justifyContent: "center", alignItems: "center" },
@@ -182,10 +184,6 @@ const styles = StyleSheet.create({
     stakeValue: { color: "#FFD700", fontSize: 22, fontWeight: "900" },
 
     versusArena: { height: 500, width: '100%', backgroundColor: '#050505', position: 'relative' },
-    videoPlaceholder: { ...StyleSheet.absoluteFillObject, backgroundColor: '#111' },
-    centerLoader: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
-
-    // 🛡️ NEW TEASER BAR UX
     rebuttalTeaser: {
         position: 'absolute',
         bottom: 16,

@@ -67,7 +67,7 @@ export function HomeScreen() {
           <Text style={{ color: '#8a2be2', fontWeight: 'bold' }}>Start a Conflict +</Text>
         </TouchableOpacity>
       </View>}
-      <Pressable
+      {/* <Pressable
         onPress={handleTestBeef}
         disabled={isLoading}
         style={{
@@ -94,7 +94,7 @@ export function HomeScreen() {
         <Text style={{ color: 'white', fontWeight: 'bold' }}>
           {isLoading ? "SENDING..." : "🥩 TEST MY TOAST"}
         </Text>
-      </Pressable>
+      </Pressable> */}
 
       {/* The Modal Layer */}
       <CreateStoryModal
