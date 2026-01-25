@@ -1,32 +1,53 @@
 import * as React from "react";
 import {
-    View, StyleSheet, Text, FlatList, ActivityIndicator,
+    View, StyleSheet, Text, ActivityIndicator,
     SafeAreaView, Pressable, Image, Dimensions
 } from "react-native";
 import { useNavigation, useIsFocused } from "@react-navigation/native";
-import { Video, ResizeMode } from 'expo-av';
+import { FlashList } from "@shopify/flash-list";
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useGetAllCompleteStoriesQuery } from "@/store/api/api";
 import { Ionicons } from '@expo/vector-icons';
 
-const { width } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const VIEW_CONFIG = { itemVisiblePercentThreshold: 50, minimumViewTime: 100 };
-
+/**
+ * 🛡️ THE ARENA CARD
+ */
 const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
     const navigation = useNavigation();
-    const [status, setStatus] = React.useState({});
+
+    // 1. 🛡️ Initialize player: Null-gate when inactive to save S8 RAM
+    const player = useVideoPlayer(isActive ? item.sideAVideoUrl : null, (p) => {
+        if (!p) return;
+        p.loop = true;
+        p.muted = isAppMuted;
+        p.volume = 1.0;
+        p.audioMixingMode = 'doNotMix'; // 🛡️ Overtake Spotify
+    });
+
+    // 2. 🛡️ Explicit Play Trigger
+    // Sometimes the callback above doesn't fire fast enough on emulators
+    React.useEffect(() => {
+        if (isActive && player) {
+            player.play();
+        }
+    }, [isActive, player]);
+
+    // 3. Sync Mute State
+    React.useEffect(() => {
+        if (player) {
+            player.muted = isAppMuted;
+        }
+    }, [isAppMuted, player]);
 
     const handlePressRebuttal = () => {
         navigation.navigate("FullStoryScreen", { storyId: item.id, initialSide: 'B' });
     };
-
-    const handlePressMain = () => {
-        navigation.navigate("StoryDetail", { storyId: item.id, initialSide: 'A' });
-    };
-
+    console.log('item now', item)
     return (
         <View style={styles.card}>
-            {/* 🛡️ Header Area */}
+            {/* --- HEADER --- */}
             <View style={styles.cardHeader}>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
@@ -40,36 +61,27 @@ const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
                 </View>
             </View>
 
+            {/* --- ARENA --- */}
             <View style={styles.versusArena}>
-                {/* 🛡️ WORKING VIDEO ENGINE (UNTOUCHED) */}
-                <Pressable onPress={handlePressMain} style={StyleSheet.absoluteFill}>
-                    {isActive ? (
-                        <Video
-                            source={{ uri: item.sideAVideoUrl }}
-                            style={StyleSheet.absoluteFill}
-                            resizeMode={ResizeMode.COVER}
-                            isLooping
-                            shouldPlay={true}
-                            isMuted={isAppMuted}
-                            onPlaybackStatusUpdate={s => setStatus(() => s)}
-                            progressUpdateIntervalMillis={1000}
-                            bufferConfig={{
-                                minBufferMs: 2500,
-                                maxBufferMs: 10000,
-                                bufferForPlaybackMs: 2000,
-                                bufferForPlaybackAfterRebufferMs: 3000,
-                            }}
-                        />
-                    ) : (
-                        <View style={styles.videoPlaceholder} />
-                    )}
-                </Pressable>
+                {/* 🛡️ BACKGROUND POSTER (Always visible to hide 'pop-in') */}
+                <Image
+                    source={{ uri: item.SideA.profilePic || item.sideAVideoUrl }}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
+                />
 
-                {/* 🛡️ NEW UX: THE "TEASER BAR" (Replacing the floating overlay) */}
-                <Pressable
-                    onPress={handlePressRebuttal}
-                    style={styles.rebuttalTeaser}
-                >
+                {/* 🛡️ VIDEO LAYER: Only mounts if centered */}
+                {isActive && player && (
+                    <VideoView
+                        style={StyleSheet.absoluteFill}
+                        player={player}
+                        contentFit="cover"
+                        fullscreenOptions={{ allowsVideoFrameAnalysis: false }}
+                    />
+                )}
+
+                {/* --- OVERLAYS --- */}
+                <Pressable onPress={handlePressRebuttal} style={styles.rebuttalTeaser}>
                     <Image
                         source={{ uri: item.sideBThumbnailUrl || item.sideBVideoUrl }}
                         style={styles.teaserAvatar}
@@ -83,25 +95,22 @@ const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
                     </View>
                 </Pressable>
 
-                {/* Info Overlays */}
                 <View style={styles.userALabel}>
                     <Text style={styles.labelText}>@{item.sideAUsername}</Text>
                 </View>
-
-                {isActive && !status.isPlaying && (
-                    <View style={styles.centerLoader}>
-                        <ActivityIndicator color="#a349a4" size="large" />
-                    </View>
-                )}
             </View>
 
-            <Pressable onPress={handlePressMain} style={styles.cardFooter}>
+            {/* --- FOOTER --- */}
+            <Pressable onPress={() => { }} style={styles.cardFooter}>
                 <Text style={styles.footerCTA}>ENTER ARENA TO VOTE →</Text>
             </Pressable>
         </View>
     );
 });
 
+/**
+ * 🛡️ THE FEED
+ */
 export const StoriesFeed = () => {
     const { data: stories, isLoading } = useGetAllCompleteStoriesQuery();
     const [activeId, setActiveId] = React.useState(null);
@@ -122,7 +131,7 @@ export const StoriesFeed = () => {
                     <Ionicons name={isAppMuted ? "volume-mute" : "volume-high"} size={22} color="white" />
                 </Pressable>
             </View>
-            <FlatList
+            <FlashList
                 data={stories}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => (
@@ -133,26 +142,28 @@ export const StoriesFeed = () => {
                     />
                 )}
                 onViewableItemsChanged={onViewableItemsChanged}
-                viewabilityConfig={VIEW_CONFIG}
 
-                // 🛡️ THE "SOFT SNAP" SETTINGS
-                // snapToInterval={620}         // The height of your card + margin
-                snapToAlignment="start"
-                decelerationRate="normal"    // 🛡️ CRITICAL: 'fast' is what feels aggressive. 'normal' feels like Instagram.
-                disableIntervalMomentum={false} // 🛡️ Allows users to flick past multiple cards if they want
+                // 🛡️ TUNING 1: Lower threshold to 30%.
+                // This triggers "isActive" as soon as the card starts sliding in.
+                viewabilityConfig={{
+                    itemVisiblePercentThreshold: 30
+                }}
 
-                // 🛡️ TOUCH RESPONSIVENESS
+                // 🛡️ TUNING 2: Draw distance.
+                // This tells FlashList to render the NEXT card's code 
+                // off-screen so the network request starts early.
+                drawDistance={SCREEN_HEIGHT}
+
+                estimatedItemSize={620}
+                windowSize={2}
                 removeClippedSubviews={true}
-                windowSize={3}               // Keep a neighbor ready so the snap is smooth
-                scrollEventThrottle={16}     // Ensures the 'isActive' check happens in real-time
-
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 100 }}
             />
         </SafeAreaView>
     );
 };
-
+// ... Styles remain identical to your provided code ...
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#000" },
     center: { flex: 1, justifyContent: "center", alignItems: "center" },

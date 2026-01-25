@@ -23,6 +23,7 @@
       "package": "com.bethea28.twocents",
       "largeHeap": true,
       "googleServicesFile": "./google-services.json",
+      "hardwareAccelerated": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -42,8 +43,8 @@
       [
         "expo-video",
         {
-          "supportsBackgroundPlayback": true,
-          "supportsPictureInPicture": true
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": false
         }
       ],
       [
@@ -64,7 +65,10 @@
         {
           "android": {
             "gradleVersion": "8.13",
-            "kotlinVersion": "2.0.0"
+            "kotlinVersion": "2.0.0",
+            "extraParams": {
+              "android.enableJetifier": "true"
+            }
           },
           "ios": {
             "useStaticFrameworks": true

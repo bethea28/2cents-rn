@@ -37,10 +37,6 @@ const CommentInput = memo(({ replyTarget, setReplyTarget, onSend, isPosting }) =
         if (!text.trim() || isPosting) return;
         onSend(text)
         setText('');
-        Toast.show({
-            type: 'success',
-            text1: "Comment sent successfully"
-        });
     };
     return (
         <View style={styles.stickyFooter}>
@@ -69,24 +65,20 @@ const CommentInput = memo(({ replyTarget, setReplyTarget, onSend, isPosting }) =
 });
 
 export const FullStoryScreen = ({ route, navigation }) => {
-    // 🛡️ Staff Engineer: Get ID and initial data from the Profile Reel
     const { storyId, initialData } = route.params;
-
-    // 🛡️ Fetch fresh data while using initialData to prevent flickers
     const { data: liveStory } = useGetStoryByIdQuery(storyId);
     const story = liveStory || initialData;
 
     const bottomSheetRef = useRef(null);
     const meterAnim = useRef(new Animated.Value(50)).current;
 
-    // --- STATE ---
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [expandedSide, setExpandedSide] = useState(null);
-    const [mutedSide, setMutedSide] = useState('B');
+    // 🛡️ Logic: Start with Side A unmuted/playing
+    const [activeAudioSide, setActiveAudioSide] = useState('A');
     const [replyTarget, setReplyTarget] = useState(null);
     const [voteMessage, setVoteMessage] = useState(null);
 
-    // --- API ---
     const [postComment, { isLoading: isPosting }] = usePostCommentMutation();
     const [toggleCommentLike] = useToggleCommentLikeMutation();
     const [castVote] = useCastVoteMutation();
@@ -101,13 +93,30 @@ export const FullStoryScreen = ({ route, navigation }) => {
 
     const toggleExpand = (side) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        if (expandedSide === side) setExpandedSide(null);
-        else {
+        if (expandedSide === side) {
+            setExpandedSide(null);
+        } else {
             setExpandedSide(side);
-            setMutedSide(side === 'A' ? 'B' : 'A');
+            setActiveAudioSide(side); // 🛡️ Switch audio/play focus
         }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     };
+
+    // 🛡️ PERFORMANCE: Flattening the comment tree for Butter-Smooth scrolling
+    const flattenedComments = useMemo(() => {
+        const raw = commentsData?.data || [];
+        const result = [];
+        const parents = raw.filter(c => !c.parentId);
+
+        parents.forEach(parent => {
+            result.push({ ...parent, isReply: false });
+            const children = raw.filter(c => c.parentId === parent.id);
+            children.forEach(child => {
+                result.push({ ...child, isReply: true });
+            });
+        });
+        return result;
+    }, [commentsData]);
 
     const handleVote = async (side) => {
         if (story?.status !== 'active-voting') return;
@@ -116,39 +125,13 @@ export const FullStoryScreen = ({ route, navigation }) => {
         setTimeout(() => setVoteMessage(null), 1500);
         try { await castVote({ storyId: story.id, side }).unwrap(); } catch (err) { }
     };
-    const onLike = (id) => {
-        console.log('like test chris', id)
-        toggleCommentLike({ commentId: id })
-        Toast.show({
-            type: 'success',
-            text1: "Like sent successfully"
-        });
-    }
-    useEffect(() => {
-        if (!story) return;
-        const totalVotes = (story.challengerVotes || 0) + (story.rebuttalVotes || 0);
-        const percentage = totalVotes > 0 ? (story.challengerVotes / totalVotes) * 100 : 50;
-        Animated.spring(meterAnim, { toValue: percentage, useNativeDriver: false, tension: 20, friction: 7 }).start();
-    }, [story?.challengerVotes, story?.rebuttalVotes]);
-
-    const commentsList = useMemo(() => {
-        const rawComments = commentsData?.data || [];
-        const map = {};
-        rawComments.forEach(c => { map[c.id] = { ...c, replies: [] }; });
-        const nested = [];
-        rawComments.forEach(c => {
-            if (c.parentId && map[c.parentId]) map[c.parentId].replies.push(map[c.id]);
-            else if (!c.parentId) nested.push(map[c.id]);
-        });
-        return nested;
-    }, [commentsData]);
 
     const handleSend = async (content) => {
         try {
             await postComment({ storyId: story.id, content: content.trim(), side: 'Neutral', parentId: replyTarget?.rootId || replyTarget?.id || null }).unwrap();
             setReplyTarget(null);
             Keyboard.dismiss();
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Toast.show({ type: 'success', text1: "Comment sent" });
         } catch (error) { }
     };
 
@@ -158,12 +141,19 @@ export const FullStoryScreen = ({ route, navigation }) => {
         </BottomSheetFooter>
     ), [replyTarget, isPosting]);
 
+    useEffect(() => {
+        if (!story) return;
+        const totalVotes = (story.challengerVotes || 0) + (story.rebuttalVotes || 0);
+        const percentage = totalVotes > 0 ? (story.challengerVotes / totalVotes) * 100 : 50;
+        Animated.spring(meterAnim, { toValue: percentage, useNativeDriver: false, tension: 20, friction: 7 }).start();
+    }, [story?.challengerVotes, story?.rebuttalVotes]);
+
     if (!story) return <ActivityIndicator style={{ flex: 1 }} color="#a349a4" />;
 
     return (
         <View style={styles.container}>
             <View style={styles.arenaContainer}>
-                {/* SIDE A */}
+                {/* 🛡️ SIDE A */}
                 <Pressable
                     style={[styles.videoSegment, expandedSide === 'A' ? { flex: 2 } : expandedSide === 'B' ? { flex: 0.5 } : { flex: 1 }]}
                     onPress={() => toggleExpand('A')}
@@ -172,9 +162,10 @@ export const FullStoryScreen = ({ route, navigation }) => {
                         source={{ uri: story.sideAVideoUrl }}
                         style={StyleSheet.absoluteFill}
                         resizeMode={ResizeMode.COVER}
-                        shouldPlay
+                        // 🛡️ CRITICAL: stopPlayback if Side B is the focus
+                        shouldPlay={activeAudioSide === 'A'}
                         isLooping
-                        isMuted={mutedSide === 'A'}
+                        isMuted={activeAudioSide !== 'A'}
                     />
                     {story.status === 'active-voting' && (
                         <View style={styles.voteBtnOverlayTop}>
@@ -191,7 +182,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
                     </View>
                 )}
 
-                {/* SIDE B */}
+                {/* 🛡️ SIDE B */}
                 <Pressable
                     style={[styles.videoSegment, expandedSide === 'B' ? { flex: 2 } : expandedSide === 'A' ? { flex: 0.5 } : { flex: 1 }]}
                     onPress={() => toggleExpand('B')}
@@ -200,9 +191,10 @@ export const FullStoryScreen = ({ route, navigation }) => {
                         source={{ uri: story.sideBVideoUrl }}
                         style={StyleSheet.absoluteFill}
                         resizeMode={ResizeMode.COVER}
-                        shouldPlay
+                        // 🛡️ CRITICAL: Only use hardware resource if active
+                        shouldPlay={activeAudioSide === 'B'}
                         isLooping
-                        isMuted={mutedSide === 'B'}
+                        isMuted={activeAudioSide !== 'B'}
                     />
                     {story.status === 'active-voting' && (
                         <View style={styles.voteBtnOverlayBottom}>
@@ -217,7 +209,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
             <SafeAreaView style={styles.headerOverlay} pointerEvents="box-none">
                 <View style={styles.scoreboardRow}>
                     <Pressable style={styles.closeButton} onPress={() => navigation.goBack()}>
-                        <Ionicons name="close" size={28} color="white" />
+                        <Ionicons name="chevron-down" size={28} color="white" />
                     </Pressable>
                     {isSheetOpen && (
                         <View style={styles.headerMeterWrapper}>
@@ -246,19 +238,38 @@ export const FullStoryScreen = ({ route, navigation }) => {
                 keyboardBehavior="interactive"
             >
                 <BottomSheetFlatList
-                    data={commentsList}
+                    data={commentsData?.data?.filter(c => !c.parentId) || []} // 🛡️ Only top-level parents
                     keyExtractor={(item) => item.id.toString()}
-                    contentContainerStyle={{ paddingBottom: 100 }}
+                    contentContainerStyle={{ paddingBottom: 120 }}
+                    removeClippedSubviews={Platform.OS === 'android'}
                     renderItem={({ item }) => (
                         <View>
                             <CommentItem
                                 comment={item}
-                                onReply={() => setReplyTarget({ id: item.id, username: item.author?.username, rootId: null })}
+                                isReply={false}
+                                onReply={() => {
+                                    setReplyTarget({ id: item.id, username: item.author?.username, rootId: item.id });
+                                    // 🛡️ Force the sheet up so the keyboard doesn't cover the input
+                                    bottomSheetRef.current?.snapToIndex(2);
+                                }}
                                 onLike={() => onLike(item.id)}
                             />
-                            {item.replies?.map(reply => (
-                                <CommentItem key={reply.id} comment={reply} isReply={true} onReply={() => setReplyTarget({ id: reply.id, username: reply.author?.username, rootId: item.id })} onLike={() => toggleCommentLike({ commentId: reply.id })} />
-                            ))}
+                            {/* 🛡️ Logic: Find and render replies directly under the parent */}
+                            {commentsData?.data
+                                ?.filter(reply => reply.parentId === item.id)
+                                .map(reply => (
+                                    <CommentItem
+                                        key={reply.id}
+                                        comment={reply}
+                                        isReply={true}
+                                        onReply={() => {
+                                            setReplyTarget({ id: reply.id, username: reply.author?.username, rootId: item.id });
+                                            bottomSheetRef.current?.snapToIndex(2);
+                                        }}
+                                        onLike={() => onLike(reply.id)}
+                                    />
+                                ))
+                            }
                         </View>
                     )}
                     ListEmptyComponent={isCommentsLoading ? <ActivityIndicator color="#a349a4" /> : <Text style={styles.emptyText}>No heat yet.</Text>}
@@ -270,6 +281,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
                     <Text style={styles.voteFlashText}>{voteMessage}</Text>
                 </View>
             )}
+            <Toast />
         </View>
     );
 };
@@ -277,7 +289,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
     arenaContainer: { height: height * 0.72, backgroundColor: '#000' },
-    videoSegment: { overflow: 'hidden', position: 'relative' },
+    videoSegment: { overflow: 'hidden', position: 'relative', backgroundColor: '#050505' },
     centerMeterContainer: { height: 4, zIndex: 10, justifyContent: 'center', backgroundColor: '#000' },
     headerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100 },
     scoreboardRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingTop: Platform.OS === 'android' ? 40 : 10 },
@@ -285,7 +297,7 @@ const styles = StyleSheet.create({
     closeButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
     voteBtnOverlayTop: { position: 'absolute', bottom: 20, left: 20 },
     voteBtnOverlayBottom: { position: 'absolute', bottom: 20, right: 20 },
-    voteBtn: { backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 8, paddingHorizontal: 15, borderRadius: 20, borderWidth: 1, borderColor: '#fff' },
+    voteBtn: { backgroundColor: 'rgba(163, 73, 164, 0.8)', paddingVertical: 8, paddingHorizontal: 15, borderRadius: 20, borderWidth: 1, borderColor: '#fff' },
     voteBtnText: { color: '#fff', fontWeight: '900', fontSize: 12 },
     interactionLayer: { flex: 1, padding: 20, backgroundColor: '#0A0A0A' },
     commentPreview: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#161616', padding: 15, borderRadius: 12 },
