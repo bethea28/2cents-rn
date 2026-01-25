@@ -15,7 +15,7 @@ import Toast from 'react-native-toast-message';
 import { store, persistor } from "../store/store";
 import { increment } from "@/store/globalState/globalState";
 import { useRegisterPushTokenMutation } from "@/store/api/api";
-
+import { VideoProvider } from './Components/VideoProvider'; // 👈 Adjust path if needed
 // Screen Imports (Add/Remove based on your actual file paths)
 import { HomeScreen } from "./Screens/HomeScreen";
 import { ChallengesScreen } from "./Screens/ChallengesScreen";
@@ -207,8 +207,11 @@ export default function App() {
       <PersistGate loading={null} persistor={persistor}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <NotifierWrapper>
-            {/* 🥩 MainApp goes here as usual */}
-            <MainApp />
+            <VideoProvider>
+
+              {/* 🥩 MainApp goes here as usual */}
+              <MainApp />
+            </VideoProvider>
 
             {/* 🥩 THE STAFF FIX: Place Toast here, AFTER your app content */}
             <Toast />

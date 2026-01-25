@@ -240,6 +240,7 @@ export const api = createApi({
       }),
       invalidatesTags: [{ type: 'comments', id: 'LIST' }],
     }),
+
   }),
   refetchOnMountOrArgChange: true,
 });
