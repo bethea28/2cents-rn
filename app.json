@@ -37,6 +37,7 @@
       ]
     },
     "plugins": [
+      "react-native-compressor",
       "expo-router",
       "expo-apple-authentication",
       "expo-notifications",
@@ -74,7 +75,8 @@
             "useStaticFrameworks": true
           }
         }
-      ]
+      ],
+      "react-native-compressor"
     ],
     "extra": {
       "router": {},

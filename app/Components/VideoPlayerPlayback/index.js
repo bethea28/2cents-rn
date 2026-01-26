@@ -1,12 +1,11 @@
-// Components/VideoPlayerPlayback.js
 import React, { memo, useEffect } from 'react';
-import { useVideoPlayer, VideoView, useEvent } from 'expo-video';
+import { useVideoPlayer, VideoView } from 'expo-video';
 
 export const VideoPlayerPlayback = memo(({
     videoSource,
     style,
     isMuted = true,
-    paused = false, // 🛡️ Added to allow the feed to pause background videos
+    paused = false,
     onLoad
 }) => {
     const player = useVideoPlayer(videoSource, (p) => {
@@ -15,15 +14,15 @@ export const VideoPlayerPlayback = memo(({
         if (!paused) p.play();
     });
 
-    // 🛡️ ENGINEER: useEvent is the modern, "Safe" way to track status without leaks
-    const { status } = useEvent(player, 'statusChange', { status: player.status });
-
+    // 🛡️ REPLACEMENT FOR useEvent:
+    // We check player.status directly in a specialized effect.
+    // This is the most compatible way for older Expo SDKs.
     useEffect(() => {
-        if (status === 'readyToPlay') {
+        if (player.status === 'readyToPlay') {
             onLoad?.();
             if (!paused) player.play();
         }
-    }, [status, paused, player, onLoad]);
+    }, [player.status, paused, onLoad]);
 
     // 🛡️ Sync paused/muted props from the parent
     useEffect(() => {
@@ -31,17 +30,19 @@ export const VideoPlayerPlayback = memo(({
         if (paused) {
             player.pause();
         } else {
-            player.play();
+            // Only play if we are focused and ready
+            if (player.status === 'readyToPlay') {
+                player.play();
+            }
         }
-    }, [isMuted, paused, player]);
+    }, [isMuted, paused, player, player.status]);
 
     return (
         <VideoView
             player={player}
             style={style}
             contentFit="cover"
-            // 🛡️ CRITICAL SAMSUNG FIX: 
-            // TextureView is required for stable rendering in lists on Galaxy S8/S21
+            // 🛡️ SAMSUNG FIX: Kept as requested for S8 stability
             nativeViewType="textureView"
             nativeControls={false}
         />

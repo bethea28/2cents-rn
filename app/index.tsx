@@ -19,6 +19,7 @@ import { VideoProvider } from './Components/VideoProvider'; // 👈 Adjust path 
 // Screen Imports (Add/Remove based on your actual file paths)
 import { HomeScreen } from "./Screens/HomeScreen";
 import { ChallengesScreen } from "./Screens/ChallengesScreen";
+import { ChallengeDetailsScreen } from "./Screens/ChallengeDetailsScreen";
 import { ProfileScreen } from "./Screens/ProfileScreen";
 import { UserFeedbackScreen } from "./Screens/UserFeedbackScreen";
 import { SocialLoginScreen } from './Screens/SocialLoginScreen';
@@ -120,7 +121,7 @@ function MyBottomTabs() {
       }} />
       <BottomTab.Screen name="Challenges" component={ChallengesScreen} />
       <BottomTab.Screen name="Profile" component={ProfileScreen} />
-      <BottomTab.Screen name="Feedback" component={UserFeedbackScreen} />
+      {/* <BottomTab.Screen name="Feedback" component={UserFeedbackScreen} /> */}
     </BottomTab.Navigator>
   );
 }
@@ -130,6 +131,7 @@ function RootStack() {
     <StackNav.Navigator>
       <StackNav.Screen name="HomeTab" component={MyBottomTabs} options={{ headerShown: false }} />
       <StackNav.Screen name="FullStoryScreen" component={FullStoryScreen} options={{ presentation: 'fullScreenModal' }} />
+      <StackNav.Screen name="ChallengeDetailsScreen" component={ChallengeDetailsScreen} />
       {/* Add other stack screens here */}
     </StackNav.Navigator>
   );
