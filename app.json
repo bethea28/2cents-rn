@@ -9,6 +9,7 @@
     "newArchEnabled": true,
     "iosUrlScheme": "com.googleusercontent.apps.812679289010-a1os4021hbvflsdp0mho5nm0q21o58gq",
     "ios": {
+      "useModularHeaders": true,
       "supportsTablet": false,
       "bundleIdentifier": "com.bethea28.twocents",
       "usesAppleSignIn": true,
@@ -72,11 +73,11 @@
             }
           },
           "ios": {
-            "useStaticFrameworks": true
+            "useStaticFrameworks": true,
+            "useModularHeaders": true // <--- ADD THIS LINE
           }
         }
-      ],
-      "react-native-compressor"
+      ]
     ],
     "extra": {
       "router": {},

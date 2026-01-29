@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
-    ActivityIndicator, Alert, SafeAreaView
+    ActivityIndicator, Alert, SafeAreaView, Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from "@react-navigation/native";
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { useSelector } from 'react-redux'; // 🛡️ Added to check who is logged in
 
 // 🛡️ API & PROVIDER
 import {
@@ -22,27 +23,35 @@ export const ChallengeDetailsScreen = ({ route, navigation }) => {
     const { story: initialStory } = route.params;
     const isFocused = useIsFocused();
 
+    // 🛡️ STAFF MOVE: Get the logged-in user's ID
+    const currentUser = useSelector((state) => state.auth.user);
+
     // 🛡️ 1. Fetch live data
     const { data: liveStory } = useGetStoryByIdQuery(initialStory.id);
     const story = liveStory || initialStory;
 
-    // 🛡️ 2. FIX: Define the missing state
+    // 🛡️ AUTH CHECKS
+    // Ensure you are reaching deep enough into the object
+    const isOpponent = currentUser?.user?.id === story.sideBAuthorId;
+    const isCreator = currentUser?.user?.id === story.sideAAuthorId;
+    console.log('test logic', currentUser)
+    console.log('story  data', story)
     const [isCameraVisible, setIsCameraVisible] = useState(false);
 
-    // 🛡️ 3. Setup Mutations
+    // 🛡️ 2. Setup Mutations
     const [updateStoryStatus] = useUpdateStoryStatusMutation();
     const [acceptChallenge, { isLoading: isAccepting }] = useAcceptChallengeMutation();
 
     const { setActivePlayerId } = useVideoValet();
 
-    // 🛡️ 4. Initialize Player directly (Bypassing the currently empty Valet getPlayer)
+    // 🛡️ 3. Initialize Player
     const player = useVideoPlayer(story.sideAVideoUrl, (p) => {
         p.loop = true;
         p.muted = false;
-        p.play();
+        if (isFocused) p.play();
     });
 
-    // 🛡️ 5. Handle Playback on Focus
+    // 🛡️ 4. Playback Logic
     useEffect(() => {
         if (isFocused) {
             setActivePlayerId(story.id.toString());
@@ -52,16 +61,16 @@ export const ChallengeDetailsScreen = ({ route, navigation }) => {
         }
     }, [isFocused, player, story.id]);
 
-    // 🛡️ 6. Receipt Update Logic
+    // 🛡️ 5. Receipt Update (Only if viewer is the Opponent)
     useEffect(() => {
-        if (isFocused && !story.sideBViewedAt) {
+        if (isFocused && isOpponent && !story.sideBViewedAt) {
             updateStoryStatus({
                 id: story.id,
                 sideBAcknowledged: true,
                 sideBViewedAt: new Date().toISOString()
             });
         }
-    }, [isFocused, story.id, story.sideBViewedAt]);
+    }, [isFocused, isOpponent, story.id, story.sideBViewedAt]);
 
     const handleAccept = async () => {
         try {
@@ -79,11 +88,19 @@ export const ChallengeDetailsScreen = ({ route, navigation }) => {
             </TouchableOpacity>
 
             <View style={styles.videoWrapper}>
+                {story.sideAThumbnailUrl && (
+                    <Image
+                        source={{ uri: story.sideAThumbnailUrl }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode="cover"
+                    />
+                )}
+
                 <VideoView
                     player={player}
                     style={StyleSheet.absoluteFill}
                     contentFit="cover"
-                    nativeViewType="textureView" // 🛡️ S8 Stability Fix
+                    nativeViewType="textureView"
                     allowsFullscreen={false}
                     showsPlaybackControls={true}
                 />
@@ -105,8 +122,10 @@ export const ChallengeDetailsScreen = ({ route, navigation }) => {
                 </Text>
             </SafeAreaView>
 
+            {/* 🛡️ FOOTER ACTIONS: Logic-Gated */}
             <View style={styles.footer}>
-                {story.status === 'pending-acceptance' ? (
+                {/* CASE 1: Opponent viewing a pending challenge */}
+                {story.status === 'pending-acceptance' && isOpponent && (
                     <TouchableOpacity
                         style={[styles.actionButton, { backgroundColor: '#5856D6' }]}
                         onPress={handleAccept}
@@ -114,7 +133,10 @@ export const ChallengeDetailsScreen = ({ route, navigation }) => {
                     >
                         {isAccepting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>ACCEPT CHALLENGE</Text>}
                     </TouchableOpacity>
-                ) : (
+                )}
+
+                {/* CASE 2: Opponent needs to record rebuttal */}
+                {story.status === 'pending-rebuttal' && isOpponent && (
                     <TouchableOpacity
                         style={[styles.actionButton, { backgroundColor: '#a349a4' }]}
                         onPress={() => setIsCameraVisible(true)}
@@ -122,9 +144,27 @@ export const ChallengeDetailsScreen = ({ route, navigation }) => {
                         <Text style={styles.buttonText}>RECORD REBUTTAL</Text>
                     </TouchableOpacity>
                 )}
+
+                {/* CASE 3: Creator viewing their own pending challenge */}
+                {story.status === 'pending-acceptance' && isCreator && (
+                    <View style={styles.waitingContainer}>
+                        <ActivityIndicator color="#a349a4" style={{ marginBottom: 10 }} />
+                        <Text style={styles.waitingText}>
+                            WAITING FOR @{story.SideB?.username || 'OPPONENT'} TO ACCEPT...
+                        </Text>
+                    </View>
+                )}
+
+                {/* CASE 4: Creator waiting for rebuttal */}
+                {story.status === 'pending-rebuttal' && isCreator && (
+                    <View style={styles.waitingContainer}>
+                        <Text style={styles.waitingText}>
+                            CHALLENGE ACCEPTED! WAITING FOR REBUTTAL...
+                        </Text>
+                    </View>
+                )}
             </View>
 
-            {/* 🛡️ Now 'isCameraVisible' and 'setIsCameraVisible' are defined! */}
             <CreateStoryModal
                 visible={isCameraVisible}
                 onClose={() => setIsCameraVisible(false)}
@@ -138,7 +178,7 @@ export const ChallengeDetailsScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
     backButton: { position: 'absolute', top: 50, left: 20, zIndex: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, padding: 5 },
-    videoWrapper: { width: '100%', height: '55%', backgroundColor: '#111' },
+    videoWrapper: { width: '100%', height: '55%', backgroundColor: '#111', overflow: 'hidden' },
     content: { padding: 20 },
     challengerLabel: { color: '#a349a4', fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
     title: { color: '#fff', fontSize: 28, fontWeight: '900', marginTop: 5 },
@@ -147,5 +187,7 @@ const styles = StyleSheet.create({
     description: { color: '#aaa', marginTop: 15, fontSize: 16, lineHeight: 22 },
     footer: { position: 'absolute', bottom: 40, width: '100%', paddingHorizontal: 20 },
     actionButton: { height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center' },
-    buttonText: { color: '#fff', fontSize: 18, fontWeight: '800' }
+    buttonText: { color: '#fff', fontSize: 18, fontWeight: '800', fontStyle: 'italic' },
+    waitingContainer: { alignItems: 'center', padding: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 15 },
+    waitingText: { color: '#a349a4', fontWeight: '800', textAlign: 'center', fontSize: 14 }
 });

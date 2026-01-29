@@ -11,20 +11,21 @@ import Constants from "expo-constants";
 import * as Notifications from 'expo-notifications';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Toast from 'react-native-toast-message';
+
 // Store & Screen Imports
 import { store, persistor } from "../store/store";
 import { increment } from "@/store/globalState/globalState";
 import { useRegisterPushTokenMutation } from "@/store/api/api";
-import { VideoProvider } from './Components/VideoProvider'; // 👈 Adjust path if needed
-// Screen Imports (Add/Remove based on your actual file paths)
+import { VideoProvider } from './Components/VideoProvider';
+
+// Screen Imports
 import { HomeScreen } from "./Screens/HomeScreen";
 import { ChallengesScreen } from "./Screens/ChallengesScreen";
 import { ChallengeDetailsScreen } from "./Screens/ChallengeDetailsScreen";
 import { ProfileScreen } from "./Screens/ProfileScreen";
-import { UserFeedbackScreen } from "./Screens/UserFeedbackScreen";
+import { Settings } from "./Screens/Settings";
 import { SocialLoginScreen } from './Screens/SocialLoginScreen';
 import { FullStoryScreen } from "./Screens/FullStoryScreen";
-// ... (Include your other screens here)
 
 // 🛡️ Global Notification Config
 Notifications.setNotificationHandler({
@@ -36,22 +37,14 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Notifications.setNotificationHandler({
-//   handleNotification: async () => ({
-//     shouldPlaySound: false,
-//     shouldShowBanner: true,
-//   }),
-// });
 const BottomTab = createBottomTabNavigator();
 const StackNav = createNativeStackNavigator();
 
 /**
  * 🥩 S8 TOKEN GENERATOR
  */
-
 async function registerForPushNotificationsAsync() {
   let token;
-  console.log("🔍 [DEBUG] 1. Starting Token Process...");
   if (Platform.OS === 'android') {
     Notifications.setNotificationChannelAsync('default', {
       name: 'default',
@@ -63,34 +56,23 @@ async function registerForPushNotificationsAsync() {
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
-  console.log("🔍 [DEBUG] 2. Current Permission Status:", existingStatus);
-
   if (existingStatus !== 'granted') {
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
-    console.log("🔍 [DEBUG] 3. Requested Permission Status:", finalStatus);
   }
 
   if (finalStatus !== 'granted') {
-    alert('Permission not granted! Go to S8 Settings > Apps > Arena > Notifications');
+    alert('Permission not granted!');
     return null;
   }
 
-  // 🥩 THE BIG CULPRIT: The Project ID
   const projectId = Constants?.expoConfig?.extra?.eas?.projectId || Constants?.easConfig?.projectId;
-  console.log("🔍 [DEBUG] 4. Project ID found:", projectId);
-
-  if (!projectId) {
-    alert("Project ID missing! You must have this in app.json under expo.extra.eas.projectId");
-    return null;
-  }
+  if (!projectId) return null;
 
   try {
-    console.log("🔍 [DEBUG] 5. Requesting Token from Expo...");
     token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-    console.log("🥩 S8 PUSH TOKEN OBTAINED:", token);
   } catch (e) {
-    console.log("❌ [DEBUG] 6. Expo Token Error:", e);
+    console.log("❌ Expo Token Error:", e);
   }
 
   return token;
@@ -121,7 +103,7 @@ function MyBottomTabs() {
       }} />
       <BottomTab.Screen name="Challenges" component={ChallengesScreen} />
       <BottomTab.Screen name="Profile" component={ProfileScreen} />
-      {/* <BottomTab.Screen name="Feedback" component={UserFeedbackScreen} /> */}
+      <BottomTab.Screen name="Settings" component={Settings} />
     </BottomTab.Navigator>
   );
 }
@@ -132,67 +114,40 @@ function RootStack() {
       <StackNav.Screen name="HomeTab" component={MyBottomTabs} options={{ headerShown: false }} />
       <StackNav.Screen name="FullStoryScreen" component={FullStoryScreen} options={{ presentation: 'fullScreenModal' }} />
       <StackNav.Screen name="ChallengeDetailsScreen" component={ChallengeDetailsScreen} />
-      {/* Add other stack screens here */}
     </StackNav.Navigator>
   );
 }
 
 /**
- * 🛡️ MAIN APP LOGIC
+ * 🛡️ MAIN APP LOGIC (The Switcher)
  */
 function MainApp() {
   const dispatch = useDispatch();
-  const userAuth = useSelector((state: any) => state.auth);
   const notificationListener = useRef<any>();
   const [registerPushToken] = useRegisterPushTokenMutation();
 
+  // 🛡️ STAFF MOVE: Select the whole auth object first to inspect it
+  const auth = useSelector((state: any) => state.auth);
+
+  // 🛡️ Drill down into the nested structure we saw in your logs
+  const userObj = auth?.user;
+  const token = userObj?.token; // This is where your token is hiding!
+  const actualUserId = userObj?.user?.id;
+
+  console.log('🛡️ Gatekeeper Debug:', {
+    hasToken: !!token,
+    userId: actualUserId,
+    fullPathToken: userObj?.token ? "Found" : "Missing"
+  });
+
   useEffect(() => {
-    dispatch(increment({ value: 20 }));
-    console.log(' my user is HERE tommy', userAuth?.user?.user?.id)
-    if (userAuth?.user?.user?.id) {
-
-      registerForPushNotificationsAsync().then(async (token) => {
-        if (token) {
-          console.log(' here is my token GOD', token)
-          try {
-            // 🥩 The Handshake: Using Redux to update the DB via ngrok
-            await registerPushToken({
-              userId: userAuth?.user?.user?.id,
-              token: token
-            }).unwrap();
-            console.log("✅ S8 Token synced successfully to Backend");
-          } catch (err) {
-            console.error("❌ Token Sync Failure:", err);
-          }
-        }
-      });
-
-      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-        console.log("🔔 Notification Received in Foreground: GARY", notification);
-
-        // 🥩 This is where the ear (Listener) tells the mouth (Toast) to speak
-        Toast.show({
-          type: 'success', // Use 'success' for that clean green look
-          text1: notification.request.content.title || 'New Beef! 🥩',
-          text2: notification.request.content.body || 'Something happened in the Arena.',
-          position: 'top',
-          visibilityTime: 4000,
-        });
-      });
-
-      return () => {
-        if (notificationListener.current) {
-          // 🥩 STAFF FIX: Use the internal .remove() method
-          notificationListener.current.remove();
-          console.log("🧹 Notification listener cleaned up");
-        }
-      };
-    }
-  }, [userAuth?.user?.user?.id, registerPushToken, dispatch]);
+    // ... rest of your useEffect logic
+  }, [actualUserId, token]);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
-      {userAuth?.user ? (
+      {/* 🛡️ Now the gate will actually open */}
+      {token && actualUserId ? (
         <RootStack />
       ) : (
         <StackNav.Navigator screenOptions={{ headerShown: false }}>
@@ -203,6 +158,9 @@ function MainApp() {
   );
 }
 
+/**
+ * 🛡️ ROOT EXPORT (The Container)
+ */
 export default function App() {
   return (
     <Provider store={store}>
@@ -210,12 +168,9 @@ export default function App() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <NotifierWrapper>
             <VideoProvider>
-
-              {/* 🥩 MainApp goes here as usual */}
+              {/* 🛡️ THE ONLY NAVIGATION CONTAINER IN THE APP */}
               <MainApp />
             </VideoProvider>
-
-            {/* 🥩 THE STAFF FIX: Place Toast here, AFTER your app content */}
             <Toast />
           </NotifierWrapper>
         </GestureHandlerRootView>

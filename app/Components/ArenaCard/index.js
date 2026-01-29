@@ -5,31 +5,23 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
-
-// 🛡️ IMPORT CHECK: Ensure these match your file structure!
-// We use Named Imports (with curly braces) because that's how we exported them.
-
-
-
 import { ArenaVideo } from '../ArenaVideo';
 
 /**
  * 🛡️ THE ARENA CARD
- * Optimized for the "Continuous Camera Move"
+ * Optimized for S8 performance with Poster/Thumbnail support
  */
-
-export const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
-    // 🛡️ Only provide the URL if the card is active. 
-    // When isActive becomes false, expo-video drops the internal network buffer.
+export const ArenaCard = React.memo(({ item, isActive, isAppMuted, thumbnailA, thumbnailB }) => {
     const navigation = useNavigation();
+
+    // 🛡️ PLAYER CONFIG: Using the thumbnail as the 'poster'
     const player = useVideoPlayer(isActive ? item.sideAVideoUrl : null, (p) => {
         p.loop = true;
         p.muted = isAppMuted;
     });
 
     React.useEffect(() => {
-        if (!player || typeof player !== 'object') return;
-
+        if (!player) return;
         if (isActive) {
             player.play();
         } else {
@@ -37,32 +29,22 @@ export const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
         }
     }, [isActive, player]);
 
-
-    // 🛡️ 3. SYNC MUTE STATE
     React.useEffect(() => {
-        if (player) {
-            player.muted = isAppMuted;
-        }
+        if (player) player.muted = isAppMuted;
     }, [isAppMuted, player]);
 
-    // 🛡️ The Player Engine and other logic...
-
     const handleEnterArena = () => {
-        // 3. Now navigation is in scope
         if (navigation) {
             navigation.navigate("FullStoryScreen", {
                 storyId: item.id,
                 initialData: item
             });
-        } else {
-            console.error("Navigation object is missing!");
         }
     };
 
-
     return (
         <View style={styles.card}>
-            {/* --- HEADER (75px) --- */}
+            {/* --- HEADER --- */}
             <View style={styles.cardHeader}>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
@@ -76,31 +58,34 @@ export const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
                 </View>
             </View>
 
-            {/* --- ARENA (500px) --- */}
+            {/* --- ARENA --- */}
             <Pressable onPress={handleEnterArena} style={styles.versusArena}>
-                {/* 🛡️ POSTER LAYER (Always there as a fallback) */}
-                <Image
-                    source={{ uri: item.SideA?.profilePic || item.sideAVideoUrl }}
-                    style={StyleSheet.absoluteFill}
-                    resizeMode="cover"
-                />
 
-                {/* 🛡️ REFACTORED VIDEO LAYER */}
+                {/* 🛡️ POSTER LAYER: Shows Side A Thumbnail immediately while video buffers */}
+                {!isActive && (
+                    <Image
+                        source={{ uri: thumbnailA || item.SideA?.profilePic }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode="cover"
+                    />
+                )}
+
+                {/* 🛡️ VIDEO LAYER */}
                 <ArenaVideo
                     player={player}
                     isActive={isActive}
                     dimmed={false}
                 />
 
-                {/* SIDE B TEASER */}
+                {/* SIDE B TEASER: Shows Side B Thumbnail */}
                 <View style={styles.rebuttalTeaser} pointerEvents="none">
                     <Image
-                        source={{ uri: item.sideBThumbnailUrl || item.sideBVideoUrl }}
+                        source={{ uri: thumbnailB || item.sideBThumbnailUrl }}
                         style={styles.teaserAvatar}
                     />
                     <View style={styles.teaserTextContainer}>
                         <Text style={styles.teaserAction}>WATCH REBUTTAL</Text>
-                        <Text style={styles.teaserUser}>@{item.sideBUsername}</Text>
+                        <Text style={styles.teaserUser}>@{item.sideBUsername || 'opponent'}</Text>
                     </View>
                     <View style={styles.goCircle}>
                         <Ionicons name="play" size={14} color="white" />
@@ -113,13 +98,14 @@ export const ArenaCard = React.memo(({ item, isActive, isAppMuted }) => {
                 </View>
             </Pressable>
 
-            {/* --- FOOTER (50px) --- */}
+            {/* --- FOOTER --- */}
             <Pressable onPress={handleEnterArena} style={styles.cardFooter}>
                 <Text style={styles.footerCTA}>ENTER ARENA TO VOTE →</Text>
             </Pressable>
         </View>
     );
 });
+// (Styles remain the same as your provided code)
 
 const styles = StyleSheet.create({
     card: {

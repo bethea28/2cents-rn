@@ -105,18 +105,19 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
         try {
             // 🛡️ 1. COMPRESSION STEP (The "Crunch")
             setIsCompressing(true);
-            console.log("🛡️ Arena: Starting compression for", videoUri);
+            console.log("🛡️ Arena: Starting manual compression at 3Mbps for", videoUri);
 
             const compressedUri = await VideoCompressor.compress(
                 videoUri,
                 {
-                    compressionMethod: 'manual', // 🛡️ Manual is safer for older Android CPUs
-                    maxResolution: 720,          // 🛡️ 720p is the industry standard for mobile social apps
-                    bitrate: 2000000,            // 🛡️ 2Mbps keeps the file small but sharp
+                    compressionMethod: 'manual',
+                    // 🛡️ Documentation Fix: maxSize is height for portrait. 1280 = 720p resolution.
+                    maxSize: 1280,
+                    bitrate: 3000000,            // 🛡️ MVP Sweet Spot for clarity
                     minimumFileSizeForCompress: 1024 * 1024, // 1MB
                 },
                 (progress) => {
-                    // Optional: You could track real-time crunch progress here
+                    // 🛡️ This progress will now show up in your logs
                     console.log(`Compression Progress: ${Math.round(progress * 100)}%`);
                 }
             );
@@ -127,9 +128,10 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
             // 🛡️ 2. PREPARE FORMDATA
             const formData = new FormData();
 
-            // We use the compressedUri here
             // @ts-ignore
             formData.append('video', {
+                // Android often needs the file:// prefix, but let's keep your logic 
+                // as it handles the pathing correctly for the multipart upload
                 uri: Platform.OS === 'android' ? compressedUri : compressedUri.replace('file://', ''),
                 name: `arena_upload_${Date.now()}.mp4`,
                 type: 'video/mp4'
@@ -140,13 +142,12 @@ export default function CreateStoryModal({ visible, onClose, storyId = null, mod
                 console.log("🛡️ Arena: Submitting Rebuttal for ID:", storyId);
                 await handleRebuttal({ id: storyId, formData }).unwrap();
             } else {
-                // Validate form before starting the upload
                 if (!form.title || !form.opponent) {
                     return Alert.alert("Wait", "Headline your case and name your opponent.");
                 }
 
                 formData.append('title', form.title);
-                formData.append('opponentHandle', form.opponent.replace('@', '')); // Strip @ if they typed it
+                formData.append('opponentHandle', form.opponent.replace('@', ''));
                 formData.append('wager', form.stake);
                 formData.append('storyType', 'call-out');
 

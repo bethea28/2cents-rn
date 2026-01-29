@@ -40,7 +40,6 @@ export const FullStoryScreen = ({ route, navigation }) => {
     // 🛡️ PLAYER A: Side Original
     const playerA = useVideoPlayer(expandedSide === 'A' ? story?.sideAVideoUrl : null, (p) => {
         p.loop = true;
-        // Kill sound immediately if modal is open on mount
         if (isCreateModalOpen) {
             p.muted = true;
             p.volume = 0;
@@ -58,18 +57,16 @@ export const FullStoryScreen = ({ route, navigation }) => {
         if (isFocused && !isCreateModalOpen) p.play();
     });
 
-    // 🛡️ THE MASTER KILL-SWITCH (Unified Effect)
-    // This ensures that when the modal opens, we kill the sound at the hardware level.
+    // 🛡️ THE MASTER KILL-SWITCH
     useEffect(() => {
         if (!isFocused || isCreateModalOpen) {
             playerA.pause();
             playerB.pause();
-            playerA.volume = 0; // Hard volume kill for Android S8
+            playerA.volume = 0;
             playerB.volume = 0;
             playerA.muted = true;
             playerB.muted = true;
         } else {
-            // Restore active side
             const active = expandedSide === 'A' ? playerA : playerB;
             active.muted = false;
             active.volume = 1;
@@ -102,7 +99,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
     };
 
     if (!story) return <ActivityIndicator style={{ flex: 1 }} color="#a349a4" />;
-
+    console.log('thumbys ghost dog', story.sideBThumbnailUrl)
     return (
         <View style={styles.container}>
             <View style={styles.arenaContainer}>
@@ -114,6 +111,8 @@ export const FullStoryScreen = ({ route, navigation }) => {
                 >
                     {expandedSide === 'A' ? (
                         <>
+                            {/* 🛡️ POSTER: Prevents black screen while playerA switches sources */}
+                            <Image source={{ uri: story?.sideAThumbnailUrl || MOCK_THUMB }} style={StyleSheet.absoluteFill} resizeMode="cover" />
                             <VideoView player={playerA} style={styles.fullVideo} contentFit="cover" />
                             <View style={styles.voteBtnOverlayTop}>
                                 <Pressable style={styles.voteBtn} onPress={() => handleVote('A')}>
@@ -123,7 +122,8 @@ export const FullStoryScreen = ({ route, navigation }) => {
                         </>
                     ) : (
                         <View style={styles.peekContainer}>
-                            <Image source={{ uri: story?.sideAThumbnail || MOCK_THUMB }} style={styles.thumbnail} blurRadius={10} />
+                            {/* 🛡️ STAFF FIX: Removed heavy blur for better visual proof */}
+                            <Image source={{ uri: story?.sideAThumbnailUrl || MOCK_THUMB }} style={styles.thumbnail} />
                             <View style={styles.peekOverlay}>
                                 <Text style={styles.peekText}>VIEW ORIGINAL</Text>
                             </View>
@@ -144,6 +144,8 @@ export const FullStoryScreen = ({ route, navigation }) => {
                 >
                     {expandedSide === 'B' ? (
                         <>
+                            {/* 🛡️ POSTER: Side B thumbnail while loading */}
+                            <Image source={{ uri: story?.sideBThumbnailUrl || MOCK_THUMB }} style={StyleSheet.absoluteFill} resizeMode="cover" />
                             <VideoView player={playerB} style={styles.fullVideo} contentFit="cover" />
                             <View style={styles.voteBtnOverlayBottom}>
                                 {!story.sideBVideoUrl && (
@@ -158,7 +160,8 @@ export const FullStoryScreen = ({ route, navigation }) => {
                         </>
                     ) : (
                         <View style={styles.peekContainer}>
-                            <Image source={{ uri: story?.sideBThumbnail || MOCK_THUMB }} style={styles.thumbnail} blurRadius={10} />
+                            {/* 🛡️ STAFF FIX: Corrected .sideBThumbnail to .sideBThumbnailUrl */}
+                            <Image source={{ uri: story?.sideBThumbnailUrl || MOCK_THUMB }} style={styles.thumbnail} />
                             <View style={styles.peekOverlay}>
                                 <Text style={styles.peekText}>VIEW CHALLENGER</Text>
                             </View>
@@ -197,13 +200,15 @@ export const FullStoryScreen = ({ route, navigation }) => {
         </View>
     );
 };
+
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
     arenaContainer: { height: SCREEN_HEIGHT * 0.82, backgroundColor: '#000' },
     videoSegment: { overflow: 'hidden', position: 'relative', backgroundColor: '#050505' },
     fullVideo: { flex: 1 },
     peekContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    thumbnail: { ...StyleSheet.absoluteFillObject, opacity: 0.3 },
+    // 🛡️ STAFF Tweak: Opacity 0.5 allows the peek text to pop without blinding the user
+    thumbnail: { ...StyleSheet.absoluteFillObject, opacity: 0.5 },
     peekOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
     peekText: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 2 },
     centerMeterContainer: { height: 4, zIndex: 10, backgroundColor: '#000', justifyContent: 'center' },
