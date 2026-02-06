@@ -1,33 +1,50 @@
 import * as React from "react";
 import {
-    View, Text, Pressable, Image, StyleSheet
+    View, Text, Pressable, Image, StyleSheet, Dimensions
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { useVideoPlayer } from 'expo-video';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useEvent } from 'expo';
 import { Ionicons } from '@expo/vector-icons';
-import { ArenaVideo } from '../ArenaVideo';
 
 /**
  * 🛡️ THE ARENA CARD
- * Optimized for S8 performance with Poster/Thumbnail support
+ * V3: Opacity-Crossfade + Buffered Transitions
  */
 export const ArenaCard = React.memo(({ item, isActive, isAppMuted, thumbnailA, thumbnailB }) => {
     const navigation = useNavigation();
 
-    // 🛡️ PLAYER CONFIG: Using the thumbnail as the 'poster'
+    // 🛡️ INTERNAL STATE FOR TRANSITION
+    const [isActuallyPlaying, setIsActuallyPlaying] = React.useState(false);
+
+    // 🛡️ PLAYER CONFIG
     const player = useVideoPlayer(isActive ? item.sideAVideoUrl : null, (p) => {
         p.loop = true;
         p.muted = isAppMuted;
     });
 
+    // 🛡️ MONITOR STATUS
+    const { status } = useEvent(player, 'statusChange', { status: player.status });
+
     React.useEffect(() => {
-        if (!player) return;
+        if (!player) {
+            setIsActuallyPlaying(false);
+            return;
+        }
+
         if (isActive) {
             player.play();
+            // 🛡️ Only show the video once the engine says it's readyToPlay
+            if (status === 'readyToPlay') {
+                // 100ms delay to ensure the hardware has painted the first frame
+                const timer = setTimeout(() => setIsActuallyPlaying(true), 100);
+                return () => clearTimeout(timer);
+            }
         } else {
             player.pause();
+            setIsActuallyPlaying(false);
         }
-    }, [isActive, player]);
+    }, [isActive, player, status]);
 
     React.useEffect(() => {
         if (player) player.muted = isAppMuted;
@@ -61,23 +78,32 @@ export const ArenaCard = React.memo(({ item, isActive, isAppMuted, thumbnailA, t
             {/* --- ARENA --- */}
             <Pressable onPress={handleEnterArena} style={styles.versusArena}>
 
-                {/* 🛡️ POSTER LAYER: Shows Side A Thumbnail immediately while video buffers */}
-                {!isActive && (
-                    <Image
-                        source={{ uri: thumbnailA || item.SideA?.profilePic }}
+                {/* 🛡️ VIDEO LAYER (Always Rendered while Active) */}
+                {isActive && (
+                    <VideoView
+                        player={player}
                         style={StyleSheet.absoluteFill}
-                        resizeMode="cover"
+                        contentFit="cover"
+                        nativeControls={false}
                     />
                 )}
 
-                {/* 🛡️ VIDEO LAYER */}
-                <ArenaVideo
-                    player={player}
-                    isActive={isActive}
-                    dimmed={false}
+                {/* 🛡️ THUMBNAIL OVERLAY (The Flicker-Killer)
+                    Using Opacity instead of conditional rendering prevents layout jumps.
+                */}
+                <Image
+                    source={{ uri: thumbnailA || item.SideA?.profilePic }}
+                    style={[
+                        StyleSheet.absoluteFill,
+                        {
+                            opacity: isActuallyPlaying ? 0 : 1,
+                            backgroundColor: '#050505' // Backup if image fails
+                        }
+                    ]}
+                    resizeMode="cover"
                 />
 
-                {/* SIDE B TEASER: Shows Side B Thumbnail */}
+                {/* SIDE B TEASER */}
                 <View style={styles.rebuttalTeaser} pointerEvents="none">
                     <Image
                         source={{ uri: thumbnailB || item.sideBThumbnailUrl }}
@@ -105,7 +131,6 @@ export const ArenaCard = React.memo(({ item, isActive, isAppMuted, thumbnailA, t
         </View>
     );
 });
-// (Styles remain the same as your provided code)
 
 const styles = StyleSheet.create({
     card: {
@@ -137,11 +162,10 @@ const styles = StyleSheet.create({
     stakeContainer: { alignItems: 'flex-end' },
     stakeLabel: { color: '#666', fontSize: 8, fontWeight: 'bold' },
     stakeValue: { color: "#FFD700", fontSize: 22, fontWeight: "900" },
-
     versusArena: {
         height: 500,
         width: '100%',
-        backgroundColor: '#050505',
+        backgroundColor: '#000',
         position: 'relative'
     },
     rebuttalTeaser: {
@@ -162,7 +186,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center'
     },
-
     userALabel: {
         position: 'absolute',
         top: 15,
@@ -170,10 +193,10 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.6)',
         paddingHorizontal: 12,
         paddingVertical: 6,
-        borderRadius: 20
+        borderRadius: 20,
+        zIndex: 25
     },
     labelText: { color: '#FFF', fontSize: 12, fontWeight: '800' },
-
     cardFooter: {
         padding: 15,
         backgroundColor: "#111",

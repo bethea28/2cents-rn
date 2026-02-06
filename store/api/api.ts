@@ -19,16 +19,48 @@ const createMyBaseQuery = () => {
     // 1. Setup the main fetch query
     const rawBaseQuery = fetchBaseQuery({
       baseUrl: BASE_URL,
-      prepareHeaders: async (headers) => {
-        const accessToken = await authTokenStore.getAccessToken();
-        console.log('PASSING THE ACCESS TOKEN', accessToken)
-        if (accessToken) {
-          headers.set("Authorization", `Bearer ${accessToken}`);
+      // prepareHeaders: async (headers) => {
+      //   const accessToken = await authTokenStore.getAccessToken();
+      //   console.log('PASSING THE ACCESS TOKEN', accessToken)
+      //   if (accessToken) {
+      //     headers.set("Authorization", `Bearer ${accessToken}`);
+      //   }
+
+      //   // 🛡️ CRITICAL: This bypasses the ngrok "Browser Warning" page 
+      //   // that causes "JSON Parse Error" in React Native.
+      //   headers.set("ngrok-skip-browser-warning", "true");
+      //   return headers;
+      // },
+      // prepareHeaders: async (headers, { endpoint }) => {
+      //   // 🛡️ STAFF FIX: Don't look for a token if we are currently TRYING to log in
+      //   if (endpoint === 'googleSync' || endpoint === 'authLogin' || endpoint === 'authRegister') {
+      //     headers.set("ngrok-skip-browser-warning", "true");
+      //     return headers;
+      //   }
+
+      //   const accessToken = await authTokenStore.getAccessToken();
+      //   if (accessToken) {
+      //     headers.set("Authorization", `Bearer ${accessToken}`);
+      //   }
+
+      //   headers.set("ngrok-skip-browser-warning", "true");
+      //   return headers;
+      // },
+
+      prepareHeaders: async (headers, { endpoint }) => {
+        // 🛡️ Always bypass ngrok warning for every single request
+        headers.set("ngrok-skip-browser-warning", "69420");
+
+        const publicEndpoints = ['googleSync', 'authLogin', 'authRegister'];
+
+        // 🛡️ Only look for a token if we AREN'T on a public page
+        if (!publicEndpoints.includes(endpoint)) {
+          const accessToken = await authTokenStore.getAccessToken();
+          if (accessToken) {
+            headers.set("Authorization", `Bearer ${accessToken}`);
+          }
         }
 
-        // 🛡️ CRITICAL: This bypasses the ngrok "Browser Warning" page 
-        // that causes "JSON Parse Error" in React Native.
-        headers.set("ngrok-skip-browser-warning", "true");
         return headers;
       },
     });
