@@ -8,7 +8,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from '@expo/vector-icons';
 
-import { useGetAllCompleteStoriesQuery } from "@/store/api/api";
+import { useGetAllCompleteStoriesQuery, useGetGlobalFeedQuery } from "@/store/api/api";
 import { useVideoValet } from "../VideoProvider";
 import { ArenaCard } from "../ArenaCard";
 
@@ -16,7 +16,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_HEIGHT = 650; // 🛡️ Calculated total height of ArenaCard + margin
 
 export const StoriesFeed = () => {
-    const { data: stories, isLoading } = useGetAllCompleteStoriesQuery();
+    const { data: stories, isLoading } = useGetGlobalFeedQuery();
     const [activeId, setActiveId] = React.useState(null);
     const [isAppMuted, setIsAppMuted] = React.useState(false);
     const isFocused = useIsFocused();

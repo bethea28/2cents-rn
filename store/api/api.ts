@@ -182,7 +182,19 @@ export const api = createApi({
         { type: 'stories', userId }
       ],
     }),
-
+    getGlobalFeed: build.query({
+      query: () => console.log('redux global feed') || ({
+        url: "/stories/globalFeed",
+        method: "GET",
+      }),
+      // providesTags: (result) =>
+      //   result
+      //     ? [
+      //       ...result.map(({ id }) => ({ type: 'stories', id })),
+      //       { type: 'stories', id: 'LIST' },
+      //     ]
+      //     : [{ type: 'stories', id: 'LIST' }],
+    }),
     getAllCompleteStories: build.query({
       query: (userId) => ({
         url: `/stories/getAllCompleteStories`,
@@ -253,6 +265,7 @@ export const api = createApi({
         { type: 'comments', id: storyId }
       ],
     }),
+    // --- 🌍 GLOBAL FEED (The missing piece) ---
 
     postComment: build.mutation<any, { storyId: number; content: string; side: string; parentId?: number }>({
       query: ({ storyId, ...body }) => ({
@@ -278,6 +291,7 @@ export const api = createApi({
 });
 
 export const {
+  useGetGlobalFeedQuery, // 🛡️ Add this so the StoriesFeed can find it!
   useRegisterPushTokenMutation, // 🥩 ADD THIS
   useSendTestPushMutation,     // 🥩 ADD THIS
   useGoogleSyncMutation, // 🛡️ Export this for SocialLoginScreen
