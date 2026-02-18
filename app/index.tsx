@@ -11,7 +11,7 @@ import Constants from "expo-constants";
 import * as Notifications from 'expo-notifications';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Toast from 'react-native-toast-message';
-
+import * as Linking from 'expo-linking';
 // Store & Screen Imports
 import { store, persistor } from "../store/store";
 import { increment } from "@/store/globalState/globalState";
@@ -26,6 +26,9 @@ import { ProfileScreen } from "./Screens/ProfileScreen";
 import { Settings } from "./Screens/Settings";
 import { SocialLoginScreen } from './Screens/SocialLoginScreen';
 import { FullStoryScreen } from "./Screens/FullStoryScreen";
+import { registerRootComponent } from 'expo';
+
+// ... all your other code ...
 
 // 🛡️ Global Notification Config
 Notifications.setNotificationHandler({
@@ -158,6 +161,32 @@ function MainApp() {
   );
 }
 
+
+
+// 🛡️ This defines how URLs translate into App Screens
+const linking = {
+  prefixes: [
+    Linking.createURL('/'),
+    'beefapp://',            // Custom Scheme
+    'https://yourdomain.com' // Universal Link (Instagram version)
+  ],
+  config: {
+    screens: {
+      // Structure: NavigatorName -> ScreenName : 'url-path/:param'
+      HomeTab: {
+        screens: {
+          Feed: 'feed',
+          Challenges: 'challenges',
+          Profile: 'profile',
+          Settings: 'settings',
+        }
+      },
+      // 🛡️ THIS IS THE MONEY SHOT: Maps beefapp://story/123 to your full screen
+      FullStoryScreen: 'story/:storyId',
+      ChallengeDetailsScreen: 'challenge/:id',
+    },
+  },
+};
 /**
  * 🛡️ ROOT EXPORT (The Container)
  */
@@ -169,7 +198,9 @@ export default function App() {
           <NotifierWrapper>
             <VideoProvider>
               {/* 🛡️ THE ONLY NAVIGATION CONTAINER IN THE APP */}
-              <MainApp />
+              <NavigationContainer linking={linking} fallback={<Text>Loading...</Text>}>
+                <MainApp />
+              </NavigationContainer>
             </VideoProvider>
             <Toast />
           </NotifierWrapper>
@@ -178,3 +209,5 @@ export default function App() {
     </Provider>
   );
 }
+
+registerRootComponent(App);

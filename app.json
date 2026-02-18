@@ -35,11 +35,25 @@
         "READ_MEDIA_IMAGES",
         "READ_MEDIA_VIDEO",
         "POST_NOTIFICATIONS"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "twocents"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "plugins": [
       "react-native-compressor",
-      "expo-router",
       "expo-apple-authentication",
       "expo-notifications",
       [
@@ -74,13 +88,12 @@
           },
           "ios": {
             "useStaticFrameworks": true,
-            "useModularHeaders": true // <--- ADD THIS LINE
+            "useModularHeaders": true
           }
         }
       ]
     ],
     "extra": {
-      "router": {},
       "eas": {
         "projectId": "b2287a9e-7279-4a1e-a5d3-d15e9874493d"
       }
