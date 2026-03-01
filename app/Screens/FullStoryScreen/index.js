@@ -13,7 +13,11 @@ import Toast from 'react-native-toast-message';
 // COMPONENTS & HOOKS
 import { BattleMeter } from '../../Components/BattleMeter';
 import { StoryCommentsSheet } from '../../Components/StoryCommentsSheet';
-import { useCastVoteMutation, useGetStoryByIdQuery } from "@/store/api/api";
+import {
+    useCastVoteMutation,
+    useGetStoryByIdQuery,
+    useGetVoteStandingsQuery // 🛡️ STAFF FIX: Added dedicated vote query
+} from "@/store/api/api";
 import CreateStoryModal from '../../Modals/CreateStoryModal';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -28,31 +32,33 @@ export const FullStoryScreen = ({ route, navigation }) => {
     const { storyId, initialData } = route.params;
     const isFocused = useIsFocused();
 
-    // 🛡️ API DATA
-    const { data: liveStory } = useGetStoryByIdQuery(storyId, {
-        pollingInterval: 10000,
+    // 🛡️ API DATA: Fetching Story Metadata
+    const { data: liveStory } = useGetStoryByIdQuery(storyId);
+
+    // 🛡️ SCOREBOARD DATA: High-speed polling for the meter
+    const { data: voteResponse } = useGetVoteStandingsQuery(storyId, {
+        pollingInterval: 5000, // 5 seconds is plenty for a "live" feel
     });
+
     const story = liveStory || initialData;
 
-    // 🛡️ STAFF LOGIC: Start on Side B if video exists, otherwise start on Side A
-    const getInitialSide = () => {
-        return story?.sideBVideoUrl ? 'B' : 'A';
-    };
-
-    const [expandedSide, setExpandedSide] = useState(getInitialSide());
+    // 🛡️ MASTER VOTE LOGIC: Prioritize the dedicated API, fallback to story model
+    const votesA = voteResponse?.data?.votesA ?? story?.sideAVotes ?? 0;
+    const votesB = voteResponse?.data?.votesB ?? story?.sideBVotes ?? 0;
+    const totalVotes = votesA + votesB;
+    console.log('bryan beth', voteResponse)
+    const [expandedSide, setExpandedSide] = useState(story?.sideBVideoUrl ? 'B' : 'A');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-    const initialScore = useMemo(() => {
-        const votesA = story?.sideAVotes || 0;
-        const votesB = story?.sideBVotes || 0;
-        const total = votesA + votesB;
-        return total === 0 ? 50 : (votesA / total) * 100;
-    }, [story]);
+    // Calculate the percentage for the Animation Engine
+    const targetScore = useMemo(() => {
+        return totalVotes === 0 ? 50 : (votesA / totalVotes) * 100;
+    }, [votesA, votesB, totalVotes]);
 
     const bottomSheetRef = useRef(null);
     const focusAnim = useRef(new Animated.Value(expandedSide === 'A' ? 15 : 85)).current;
-    const voteAnim = useRef(new Animated.Value(initialScore)).current;
+    const voteAnim = useRef(new Animated.Value(targetScore)).current;
 
     // --- VIDEO PLAYERS ---
     const playerA = useVideoPlayer(story?.sideAVideoUrl, (p) => {
@@ -76,22 +82,15 @@ export const FullStoryScreen = ({ route, navigation }) => {
     }, [expandedSide]);
 
     useEffect(() => {
-        if (story) {
-            const votesA = story.sideAVotes || 0;
-            const votesB = story.sideBVotes || 0;
-            const total = votesA + votesB;
-            const percentageA = total === 0 ? 50 : (votesA / total) * 100;
+        Animated.spring(voteAnim, {
+            toValue: targetScore,
+            friction: 8,
+            tension: 45,
+            useNativeDriver: false
+        }).start();
+    }, [targetScore]);
 
-            Animated.spring(voteAnim, {
-                toValue: percentageA,
-                friction: 6,
-                tension: 40,
-                useNativeDriver: false
-            }).start();
-        }
-    }, [story?.sideAVotes, story?.sideBVotes]);
-
-    // 🛡️ MASTER CONTROL: Sync Audio and Playback
+    // --- VIDEO PLAYBACK CONTROL ---
     useEffect(() => {
         if (!isFocused || isCreateModalOpen || isSheetOpen) {
             playerA.pause();
@@ -125,10 +124,11 @@ export const FullStoryScreen = ({ route, navigation }) => {
     const handleVote = async (side) => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         try {
+            // We use .unwrap() to catch any 401/400 errors from the backend
             await castVote({ storyId: story.id, side }).unwrap();
             Toast.show({ type: 'success', text1: `Voted for ${side === 'A' ? 'Challenger' : 'Rebuttal'}` });
         } catch (err) {
-            console.error("Vote failed", err);
+            Toast.show({ type: 'error', text1: 'Vote Failed', text2: err.data?.error || 'Try again later' });
         }
     };
 
@@ -138,7 +138,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
         <View style={styles.container}>
             <View style={styles.arenaContainer}>
 
-                {/* --- SIDE A (TOP/ORIGINAL) --- */}
+                {/* --- SIDE A (CHALLENGER) --- */}
                 <Pressable
                     style={[styles.videoSegment, expandedSide === 'A' ? { flex: 3 } : { flex: 1 }]}
                     onPress={() => toggleExpand('A')}
@@ -160,17 +160,17 @@ export const FullStoryScreen = ({ route, navigation }) => {
                     )}
                 </Pressable>
 
-                {/* 🛡️ BATTLE METER */}
+                {/* 🛡️ BATTLE METER (The Scoreboard) */}
                 <View style={styles.centerMeterContainer}>
                     <BattleMeter
-                        focusAnim={focusAnim}
                         voteAnim={voteAnim}
                         isArenaLit={!isSheetOpen}
-                        initialValue={initialScore}
+                        votesA={votesA}
+                        votesB={votesB}
                     />
                 </View>
 
-                {/* --- SIDE B (BOTTOM/REBUTTAL) --- */}
+                {/* --- SIDE B (REBUTTAL) --- */}
                 <Pressable
                     style={[styles.videoSegment, expandedSide === 'B' ? { flex: 3 } : { flex: 1 }]}
                     onPress={() => toggleExpand('B')}
@@ -180,7 +180,6 @@ export const FullStoryScreen = ({ route, navigation }) => {
                             {story.sideBVideoUrl ? (
                                 <VideoView player={playerB} style={styles.fullVideo} contentFit="cover" />
                             ) : (
-                                /* 🛡️ THE REQUESTED PLACEHOLDER UX */
                                 <ImageBackground
                                     source={{ uri: story?.SideB?.profilePic || MOCK_THUMB }}
                                     style={styles.fullVideo}
@@ -188,10 +187,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
                                 >
                                     <View style={styles.placeholderOverlay}>
                                         <View style={styles.avatarCircle}>
-                                            <Image
-                                                source={{ uri: story?.SideB?.profilePic || MOCK_THUMB }}
-                                                style={styles.avatarLarge}
-                                            />
+                                            <Image source={{ uri: story?.SideB?.profilePic || MOCK_THUMB }} style={styles.avatarLarge} />
                                             <View style={styles.timerBadge}>
                                                 <Ionicons name="time" size={16} color="white" />
                                             </View>
@@ -224,6 +220,7 @@ export const FullStoryScreen = ({ route, navigation }) => {
                 </Pressable>
             </View>
 
+            {/* --- INTERACTION --- */}
             <View style={styles.interactionLayer}>
                 <Pressable style={styles.commentPreview} onPress={() => bottomSheetRef.current?.snapToIndex(1)}>
                     <Ionicons name="chatbubble-outline" size={20} color="#666" />
@@ -254,6 +251,8 @@ export const FullStoryScreen = ({ route, navigation }) => {
         </View>
     );
 };
+
+
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },

@@ -6,16 +6,53 @@ import { useNavigation } from "@react-navigation/native";
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEvent } from 'expo';
 import { Ionicons } from '@expo/vector-icons';
+import { formatDistanceToNow, isAfter } from 'date-fns';
 
 /**
  * 🛡️ THE ARENA CARD
- * V3: Opacity-Crossfade + Buffered Transitions
+ * V4: Dynamic Expiration + Battle State Detection
+ * Logic: If Side B has a video, it's a "Battle". If not, it's a "Challenge" with a 24h fuse.
  */
 export const ArenaCard = React.memo(({ item, isActive, isAppMuted, thumbnailA, thumbnailB }) => {
     const navigation = useNavigation();
 
     // 🛡️ INTERNAL STATE FOR TRANSITION
     const [isActuallyPlaying, setIsActuallyPlaying] = React.useState(false);
+
+    // 🛡️ BATTLE CHECK (Staff Engineer Logic)
+    // If sideBVideoUrl exists, the challenge was accepted. No "Chicken Out" possible.
+    const isBattleActive = !!item.sideBVideoUrl;
+
+    // 🛡️ COUNTDOWN LOGIC 
+    const [timeLeft, setTimeLeft] = React.useState("");
+    const [isExpired, setIsExpired] = React.useState(false);
+
+    React.useEffect(() => {
+        // If the battle is already live, we don't need the "Chicken" timer.
+        if (isBattleActive) return;
+
+        // Use expiresAt from DB, or fallback to createdAt + 24 hours
+        const expiryDate = item.expiresAt
+            ? new Date(item.expiresAt)
+            : new Date(new Date(item.createdAt).getTime() + 24 * 60 * 60 * 1000);
+
+        const tick = () => {
+            const now = new Date();
+            if (isAfter(now, expiryDate)) {
+                setIsExpired(true);
+                setTimeLeft("EXPIRED");
+            } else {
+                setIsExpired(false);
+                // Clean distance string (e.g., "12 hours left")
+                const distance = formatDistanceToNow(expiryDate, { addSuffix: true });
+                setTimeLeft(distance.replace('in ', '') + ' left');
+            }
+        };
+
+        tick();
+        const timerId = setInterval(tick, 60000); // 1-minute interval for battery efficiency
+        return () => clearInterval(timerId);
+    }, [item.expiresAt, item.createdAt, isBattleActive]);
 
     // 🛡️ PLAYER CONFIG
     const player = useVideoPlayer(isActive ? item.sideAVideoUrl : null, (p) => {
@@ -36,7 +73,6 @@ export const ArenaCard = React.memo(({ item, isActive, isAppMuted, thumbnailA, t
             player.play();
             // 🛡️ Only show the video once the engine says it's readyToPlay
             if (status === 'readyToPlay') {
-                // 100ms delay to ensure the hardware has painted the first frame
                 const timer = setTimeout(() => setIsActuallyPlaying(true), 100);
                 return () => clearTimeout(timer);
             }
@@ -58,15 +94,29 @@ export const ArenaCard = React.memo(({ item, isActive, isAppMuted, thumbnailA, t
             });
         }
     };
-
+    console.log('TEST ME NOW', item.SideA)
     return (
         <View style={styles.card}>
             {/* --- HEADER --- */}
             <View style={styles.cardHeader}>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-                    <View style={styles.typeBadge}>
-                        <Text style={styles.typeText}>LIVE ARENA</Text>
+
+                    {/* 🛡️ DYNAMIC STATUS BADGE */}
+                    <View style={[
+                        styles.typeBadge,
+                        isExpired && !isBattleActive && { backgroundColor: '#CC000022' },
+                        isBattleActive && { backgroundColor: '#22CC0022' }
+                    ]}>
+                        <Text style={[
+                            styles.typeText,
+                            isExpired && !isBattleActive && { color: '#FF4444' },
+                            isBattleActive && { color: '#44FF44' }
+                        ]}>
+                            {isBattleActive
+                                ? "BATTLE ACTIVE"
+                                : (isExpired ? "CHICKENED OUT" : `LIVE ARENA • ${timeLeft}`)}
+                        </Text>
                     </View>
                 </View>
                 <View style={styles.stakeContainer}>
@@ -76,7 +126,7 @@ export const ArenaCard = React.memo(({ item, isActive, isAppMuted, thumbnailA, t
             </View>
 
             {/* --- ARENA --- */}
-            <Pressable onPress={handleEnterArena} style={styles.versusArena}>
+            <View onPress={handleEnterArena} style={styles.versusArena}>
 
                 {/* 🛡️ VIDEO LAYER (Always Rendered while Active) */}
                 {isActive && (
@@ -88,49 +138,69 @@ export const ArenaCard = React.memo(({ item, isActive, isAppMuted, thumbnailA, t
                     />
                 )}
 
-                {/* 🛡️ THUMBNAIL OVERLAY (The Flicker-Killer)
-                    Using Opacity instead of conditional rendering prevents layout jumps.
-                */}
+                {/* 🛡️ THUMBNAIL OVERLAY (The Flicker-Killer) */}
                 <Image
                     source={{ uri: thumbnailA || item.SideA?.profilePic }}
                     style={[
                         StyleSheet.absoluteFill,
                         {
                             opacity: isActuallyPlaying ? 0 : 1,
-                            backgroundColor: '#050505' // Backup if image fails
+                            backgroundColor: '#050505'
                         }
                     ]}
                     resizeMode="cover"
                 />
 
                 {/* SIDE B TEASER */}
-                <View style={styles.rebuttalTeaser} pointerEvents="none">
+                {/* SIDE B TEASER - Restored Navigation Logic */}
+                <Pressable
+                    onPress={(e) => {
+                        e.stopPropagation(); // Prevents the main versusArena click from firing
+                        if (navigation) {
+                            navigation.navigate("FullStoryScreen", {
+                                storyId: item.id,
+                                initialData: item,
+                                startAtSideB: true // Expert UX: Deep-link straight to the rebuttal
+                            });
+                        }
+                    }}
+                    style={styles.rebuttalTeaser}
+                >
                     <Image
                         source={{ uri: thumbnailB || item.sideBThumbnailUrl }}
                         style={styles.teaserAvatar}
                     />
                     <View style={styles.teaserTextContainer}>
-                        <Text style={styles.teaserAction}>WATCH REBUTTAL</Text>
+                        <Text style={styles.teaserAction}>
+                            {isBattleActive ? "VIEW REBUTTAL" : (isExpired ? "MISSED CHANCE" : "WATCH REBUTTAL")}
+                        </Text>
                         <Text style={styles.teaserUser}>@{item.sideBUsername || 'opponent'}</Text>
                     </View>
                     <View style={styles.goCircle}>
-                        <Ionicons name="play" size={14} color="white" />
+                        <Ionicons
+                            name={isBattleActive ? "flame" : (isExpired ? "close-circle" : "play")}
+                            size={14}
+                            color="white"
+                        />
                     </View>
-                </View>
+                </Pressable>
 
                 {/* SIDE A LABEL */}
                 <View style={styles.userALabel}>
-                    <Text style={styles.labelText}>@{item.sideAUsername}</Text>
+                    <Text style={styles.labelText}>@{item.SideA?.username}</Text>
                 </View>
-            </Pressable>
+            </View>
 
             {/* --- FOOTER --- */}
             <Pressable onPress={handleEnterArena} style={styles.cardFooter}>
-                <Text style={styles.footerCTA}>ENTER ARENA TO VOTE →</Text>
+                <Text style={styles.footerCTA}>
+                    {isBattleActive ? "WATCH THE CLASH →" : (isExpired ? "VIEW THE SHAME →" : "ENTER ARENA TO VOTE →")}
+                </Text>
             </Pressable>
         </View>
     );
 });
+
 
 const styles = StyleSheet.create({
     card: {

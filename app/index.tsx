@@ -12,9 +12,9 @@ import * as Notifications from 'expo-notifications';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Toast from 'react-native-toast-message';
 import * as Linking from 'expo-linking';
+
 // Store & Screen Imports
 import { store, persistor } from "../store/store";
-import { increment } from "@/store/globalState/globalState";
 import { useRegisterPushTokenMutation } from "@/store/api/api";
 import { VideoProvider } from './Components/VideoProvider';
 
@@ -27,8 +27,6 @@ import { Settings } from "./Screens/Settings";
 import { SocialLoginScreen } from './Screens/SocialLoginScreen';
 import { FullStoryScreen } from "./Screens/FullStoryScreen";
 import { registerRootComponent } from 'expo';
-
-// ... all your other code ...
 
 // 🛡️ Global Notification Config
 Notifications.setNotificationHandler({
@@ -43,8 +41,65 @@ Notifications.setNotificationHandler({
 const BottomTab = createBottomTabNavigator();
 const StackNav = createNativeStackNavigator();
 
+// 🛡️ Smler & Deep Link Config
+const linking = {
+  prefixes: [
+    Linking.createURL('/'),
+    'twocents://',
+    'https://links.octhehero.com',
+    'https://smler.in',
+  ],
+  config: {
+    screens: {
+      HomeTab: {
+        screens: {
+          Feed: 'feed',
+          Challenges: 'challenges',
+          Profile: 'profile',
+          Settings: 'settings',
+        }
+      },
+      // 🎯 COMBINE THEM HERE:
+      // This allows ONE screen name to handle multiple types of URLs
+      FullStoryScreen: {
+        path: 'story-test', // This catches your specific test link
+      },
+      ChallengeDetailsScreen: 'challenge/:id',
+    },
+  },
+};
+
+// const linking = {
+//   prefixes: [
+//     Linking.createURL('/'),
+//     'twocents://',
+//     'https://links.octhehero.com', // ✨ ADD THIS: Your custom Smler domain
+//     'https://smler.in',            // Keep these as backups
+//     'https://smler.io'
+//   ],
+//   config: {
+//     screens: {
+//       HomeTab: {
+//         screens: {
+//           Feed: 'feed',
+//           Challenges: 'challenges',
+//           Profile: 'profile',
+//           Settings: 'settings',
+//         }
+//       },
+//       // This matches: https://links.octhehero.com/story/123
+//       FullStoryScreen: 'story/:storyId', 
+
+//       // This matches: https://links.octhehero.com/challenge/abc
+//       ChallengeDetailsScreen: 'challenge/:id',
+
+//       // ✨ ADD THIS: To catch your "story-test" link specifically
+//       FullStoryScreen: 'story-test', 
+//     },
+//   },
+// };
 /**
- * 🥩 S8 TOKEN GENERATOR
+ * 🥩 TOKEN GENERATOR (PUSH)
  */
 async function registerForPushNotificationsAsync() {
   let token;
@@ -64,10 +119,7 @@ async function registerForPushNotificationsAsync() {
     finalStatus = status;
   }
 
-  if (finalStatus !== 'granted') {
-    alert('Permission not granted!');
-    return null;
-  }
+  if (finalStatus !== 'granted') return null;
 
   const projectId = Constants?.expoConfig?.extra?.eas?.projectId || Constants?.easConfig?.projectId;
   if (!projectId) return null;
@@ -77,7 +129,6 @@ async function registerForPushNotificationsAsync() {
   } catch (e) {
     console.log("❌ Expo Token Error:", e);
   }
-
   return token;
 }
 
@@ -91,6 +142,7 @@ GoogleSignin.configure({
  */
 function MyBottomTabs() {
   const navigation = useNavigation<any>();
+
   return (
     <BottomTab.Navigator screenOptions={{
       tabBarStyle: { backgroundColor: '#000' },
@@ -115,7 +167,7 @@ function RootStack() {
   return (
     <StackNav.Navigator>
       <StackNav.Screen name="HomeTab" component={MyBottomTabs} options={{ headerShown: false }} />
-      <StackNav.Screen name="FullStoryScreen" component={FullStoryScreen} options={{ presentation: 'fullScreenModal' }} />
+      <StackNav.Screen name="FullStoryScreen" component={FullStoryScreen} options={{ presentation: 'fullScreenModal', headerShown: false }} />
       <StackNav.Screen name="ChallengeDetailsScreen" component={ChallengeDetailsScreen} />
     </StackNav.Navigator>
   );
@@ -125,31 +177,30 @@ function RootStack() {
  * 🛡️ MAIN APP LOGIC (The Switcher)
  */
 function MainApp() {
-  const dispatch = useDispatch();
-  const notificationListener = useRef<any>();
   const [registerPushToken] = useRegisterPushTokenMutation();
 
-  // 🛡️ STAFF MOVE: Select the whole auth object first to inspect it
+  // 🛡️ Gatekeeper check
   const auth = useSelector((state: any) => state.auth);
-
-  // 🛡️ Drill down into the nested structure we saw in your logs
   const userObj = auth?.user;
-  const token = userObj?.token; // This is where your token is hiding!
+  const token = userObj?.token;
   const actualUserId = userObj?.user?.id;
 
-  console.log('🛡️ Gatekeeper Debug:', {
-    hasToken: !!token,
-    userId: actualUserId,
-    fullPathToken: userObj?.token ? "Found" : "Missing"
-  });
-
   useEffect(() => {
-    // ... rest of your useEffect logic
+    if (token && actualUserId) {
+      registerForPushNotificationsAsync().then(pushToken => {
+        if (pushToken) registerPushToken({ userId: actualUserId, token: pushToken });
+      });
+    }
   }, [actualUserId, token]);
 
+  useEffect(() => {
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      console.log("🚀 Link Received:", url);
+    });
+    return () => subscription.remove();
+  }, []);
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
-      {/* 🛡️ Now the gate will actually open */}
       {token && actualUserId ? (
         <RootStack />
       ) : (
@@ -161,34 +212,8 @@ function MainApp() {
   );
 }
 
-
-
-// 🛡️ This defines how URLs translate into App Screens
-const linking = {
-  prefixes: [
-    Linking.createURL('/'),
-    'beefapp://',            // Custom Scheme
-    'https://yourdomain.com' // Universal Link (Instagram version)
-  ],
-  config: {
-    screens: {
-      // Structure: NavigatorName -> ScreenName : 'url-path/:param'
-      HomeTab: {
-        screens: {
-          Feed: 'feed',
-          Challenges: 'challenges',
-          Profile: 'profile',
-          Settings: 'settings',
-        }
-      },
-      // 🛡️ THIS IS THE MONEY SHOT: Maps beefapp://story/123 to your full screen
-      FullStoryScreen: 'story/:storyId',
-      ChallengeDetailsScreen: 'challenge/:id',
-    },
-  },
-};
 /**
- * 🛡️ ROOT EXPORT (The Container)
+ * 🛡️ ROOT EXPORT
  */
 export default function App() {
   return (
@@ -197,8 +222,7 @@ export default function App() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <NotifierWrapper>
             <VideoProvider>
-              {/* 🛡️ THE ONLY NAVIGATION CONTAINER IN THE APP */}
-              <NavigationContainer linking={linking} fallback={<Text>Loading...</Text>}>
+              <NavigationContainer linking={linking} fallback={<Text style={{ color: 'white' }}>Loading Arena...</Text>}>
                 <MainApp />
               </NavigationContainer>
             </VideoProvider>

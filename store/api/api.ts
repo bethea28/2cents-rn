@@ -6,6 +6,8 @@ import authSlice from "../authReducer";
  * 🛡️ STAFF ENGINEER: SINGLE SOURCE OF TRUTH
  * Using the ngrok URL for remote access.
  */
+// const BASE_URL = "http://10.0.2.2:5001";//mom house
+
 const BASE_URL = "https://unpredicting-raring-chaim.ngrok-free.dev";
 
 export const objectToUrlEncodedString = (obj: Record<string, string | number>) => {
@@ -117,7 +119,7 @@ const createMyBaseQuery = () => {
 export const api = createApi({
   reducerPath: "api",
   baseQuery: createMyBaseQuery(),
-  tagTypes: ["stories", "comments", "pushToken"],
+  tagTypes: ["stories", "comments", "pushToken", "votes"],
   endpoints: (build) => ({
     // --- 🔐 AUTH ENDPOINTS ---
 
@@ -246,17 +248,45 @@ export const api = createApi({
     }),
 
     // --- 🗳 VOTING ENDPOINTS ---
-    castVote: build.mutation<any, { storyId: number; side: 'A' | 'B' }>({
-      query: ({ storyId, side }) => ({
-        url: `/votes/storiesVote/${storyId}`,
-        method: "POST",
-        body: { storyId, side },
-      }),
+    // --- 🗳 VOTING ENDPOINTS ---
+
+    // 1. THE ACTION: Casting the judgment
+    castVote: build.mutation<any, { storyId: number; side: 'A' | 'B'; video?: any }>({
+      query: ({ storyId, side, video }) => {
+        // 🛡️ Staff Engineer Note: If your frontend supports video rebuttals, 
+        // we use FormData. Otherwise, clean JSON is faster.
+        if (video) {
+          const formData = new FormData();
+          formData.append('side', side);
+          formData.append('video', video);
+          return {
+            url: `/votes/storiesVote/${storyId}`,
+            method: "POST",
+            body: formData,
+          };
+        }
+        return {
+          url: `/votes/storiesVote/${storyId}`,
+          method: "POST",
+          body: { storyId, side },
+        };
+      },
+      // 🛡️ This triggers getVoteStandings to refetch automatically
       invalidatesTags: (result, error, { storyId }) => [
-        { type: 'stories', id: storyId }
+        { type: 'stories', id: storyId },
+        { type: 'votes', id: storyId }
       ],
     }),
 
+    // 2. THE STANDINGS: Getting the score (Public)
+    getVoteStandings: build.query<any, number>({
+      query: (storyId) => ({
+        url: `/votes/storiesVote/${storyId}`,
+        method: 'GET',
+      }),
+      // 🛡️ Adding 'votes' to your tagTypes above is recommended
+      providesTags: (result, error, id) => [{ type: 'votes', id }],
+    }),
     // --- 💬 COMMENT ENDPOINTS ---
     getComments: build.query<any, { storyId: number; page?: number }>({
       query: ({ storyId, page = 1 }) => `/comments/${storyId}?page=${page}`,
@@ -291,6 +321,7 @@ export const api = createApi({
 });
 
 export const {
+  useGetVoteStandingsQuery,
   useGetGlobalFeedQuery, // 🛡️ Add this so the StoriesFeed can find it!
   useRegisterPushTokenMutation, // 🥩 ADD THIS
   useSendTestPushMutation,     // 🥩 ADD THIS
